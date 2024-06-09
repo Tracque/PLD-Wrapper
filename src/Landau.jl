@@ -45,7 +45,7 @@ function getU(edges)
     @var α[1:length(edges)]
     M = fill(zero(typeof((sum(α)))), VG, VG)
     J = Dict(edges .=> 1:length(edges))
-    for i = 1:length(edges)6
+    for i = 1:length(edges)
         e = edges[i]
         M[I[e[1]], I[e[2]]] += -α[i]
         M[I[e[2]], I[e[1]]] += -α[i]

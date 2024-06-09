@@ -5,9 +5,9 @@ using Base.Threads: @spawn, fetch, nthreads, threadid
 using Base.Threads: Atomic, atomic_add!
 using Pkg; Pkg.activate()
 
-#using Oscar
-#using HomotopyContinuation
-#using PLD
+using Oscar
+using HomotopyContinuation
+using PLD
 
 using Blink #For GUI
 
@@ -20,22 +20,39 @@ mutable struct ThreadPool
     function ThreadPool(max_threads::Int)
         return new(max_threads, Atomic{Int}(max_threads))
     end
+end
 
-	#Method to check if the threads are available
-    function acquire!(pool::ThreadPool, n::Int)
-        available = atomic_add!(pool.available_threads, -n)
-        if available >= 0
-            return true
-        else
-            atomic_add!(pool.available_threads, n)
-			return false
-        end
+#This struct stores some important variables we need to carry through the program
+mutable struct Ctx
+    discriminants::Array
+    codim_cones::Array
+    codim_start::Int
+    face_start::Int
+    min_codim::Int
+    single_face::Bool
+    save_output::String
+
+    #Contructor for the struct
+    function Ctx(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
+        return new(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
     end
 
-	#Method to release threads back into the pool
-    function release!(pool::ThreadPool, n::Int)
+end
+
+#Method to check if the threads are available
+function acquire!(pool::ThreadPool, n::Int)
+    available = atomic_add!(pool.available_threads, -n)
+    if available >= 0
+        return true
+    else
         atomic_add!(pool.available_threads, n)
+		return false
     end
+end
+
+#Method to release threads back into the pool
+function release!(pool::ThreadPool, n::Int)
+    atomic_add!(pool.available_threads, n)
 end
 
 #This struct will allow us to manage the symbolic and numeric tasks
@@ -50,98 +67,99 @@ mutable struct TaskPairManager
     timeout::Int
 
     #Constructor of the struct
-    function TaskPairManager(pool::ThreadPool, sym_tasks::Array, num_tasks::Array, task_start_times::Array, task_not_aborted::Array, task_codim::Array, task_face::Array, timeout::Int)
+    function TaskPairManager(pool::ThreadPool, sym_tasks::Array, num_tasks::Array, task_start_times::Array, task_not_aborted::Array, task_codim::Array, task_face::Array; timeout::Int)
         return new(pool, sym_tasks, num_tasks, task_start_times, task_not_aborted, task_codim, task_face, timeout)
-    end
-
-    function start_pair(manager::TaskPairManager, IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
-        #Create and keep track of 2 new tasks (symbolic and numeric for this face)
-        push!(manager.sym_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :sym, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
-        push!(manager.num_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :num, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
-
-        push!(manager.task_not_aborted, true)
-
-        #Keep note of when we started each task pair
-        push!(manager.task_start_times, time())
-
-        #Keep note of the current face and codim
-        push!(manager.task_codim, codim)
-        push!(manager.task_face, face)
-    end
-
-    function check_tasks(manager::TaskPairManager)
-        for i = 1 : 1 : length(manager.sym_tasks)
-            if istaskdone(manager.sym_tasks[i])
-
-                if manager.task_not_aborted[i] #Only try to fetch results if the process finished normally, not if we killed it ourselves
-
-                    #Get, store and display output
-                    disc = fetch(manager.sym_tasks[i])
-                    store_and_output_discs(disc, codim, face)
-
-                    #Kill the other thread
-                    Base.throwto(manager.num_tasks[i], InterruptException())
-
-                    #Remove the now dead tasks from the tracking arrays
-                    deleteat!(manager.sym_tasks, i)
-                    deleteat!(manager.num_tasks, i)
-                    deleteat!(manager.task_start_times, i)
-                    deleteat!(manager.task_not_aborted, i)
-
-                    manager.pool.release!(2)
-
-                    faces_done += 1
-                
-                end
-            
-            #The symbolic thread shouldn't take long if it succeeds, so we time it out after a while
-            elseif manager.task_not_aborted[i] && (time() - manager.task_start_times[i] > manager.timeout)
-
-                #Kill the symbolic thread if it has been too long
-                Base.throwto(manger.sym_tasks[i], InterruptException())
-
-                #Release the symbolic thread
-                manager.pool.release(1)
-
-                #Update the status of this thread
-                manager.task_not_aborted[i] = false
-
-            elseif istaskdone(manager.num_tasks[i])
-                
-                #Get, store and display output
-                disc = fetch(manager.num_tasks[i])
-                store_and_output_discs(disc, codim, face)
-
-                #Kill the other thread
-                Base.throwto(manager.sym_tasks[i], InterruptException())
-
-                #Remove the now dead tasks from the array
-                deleteat!(manager.sym_tasks, i)
-                deleteat!(manager.num_tasks, i)
-                deleteat!(manager.task_start_times, i)
-
-                #If the symbolic task has already been killed, then it has already been released
-                if manager.task_not_aborted[i]
-                    manager.pool.release!(1)
-                else
-                    manager.pool.release!(2)
-                end
-
-                deleteat!(manager.task_not_aborted, i)
-
-                faces_done += 1
-
-            end
-        end
     end
 
 end
 
+function start_pair(manager::TaskPairManager, IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
+    #Create and keep track of 2 new tasks (symbolic and numeric for this face)
+    push!(manager.sym_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :sym, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
+    push!(manager.num_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :num, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
+
+    push!(manager.task_not_aborted, true)
+
+    #Keep note of when we started each task pair
+    push!(manager.task_start_times, time())
+
+    #Keep note of the current face and codim
+    push!(manager.task_codim, codim)
+    push!(manager.task_face, face)
+end
+
+function check_tasks(manager::TaskPairManager, unique_discriminants::Array, Context::Ctx)
+    for i = 1 : 1 : length(manager.sym_tasks)
+        if istaskdone(manager.sym_tasks[i])
+
+            if manager.task_not_aborted[i] #Only try to fetch results if the process finished normally, not if we killed it ourselves
+
+                #Get, store and display output
+                disc = fetch(manager.sym_tasks[i])
+                unique_discriminants = store_and_output_discs(disc, manager.task_codim[i], manager.task_face[i], unique_discriminants, Context)
+
+                #Kill the other thread
+                Base.throwto(manager.num_tasks[i], InterruptException())
+
+                #Remove the now dead tasks from the tracking arrays
+                deleteat!(manager.sym_tasks, i)
+                deleteat!(manager.num_tasks, i)
+                deleteat!(manager.task_start_times, i)
+                deleteat!(manager.task_not_aborted, i)
+
+                release!(manager.pool, 2)
+
+                faces_done += 1
+            
+            end
+        
+        #The symbolic thread shouldn't take long if it succeeds, so we time it out after a while
+        elseif manager.task_not_aborted[i] && (time() - manager.task_start_times[i] > manager.timeout)
+
+            #Kill the symbolic thread if it has been too long
+            Base.throwto(manger.sym_tasks[i], InterruptException())
+
+            #Release the symbolic thread
+            manager.pool.release(1)
+
+            #Update the status of this thread
+            manager.task_not_aborted[i] = false
+
+        elseif istaskdone(manager.num_tasks[i])
+            
+            #Get, store and display output
+            disc = fetch(manager.num_tasks[i])
+            unique_discriminants = store_and_output_discs(disc, manager.task_codim, manager.task_face, unique_discriminants, Context)
+
+            #Kill the other thread
+            Base.throwto(manager.sym_tasks[i], InterruptException())
+
+            #Remove the now dead tasks from the array
+            deleteat!(manager.sym_tasks, i)
+            deleteat!(manager.num_tasks, i)
+            deleteat!(manager.task_start_times, i)
+
+            #If the symbolic task has already been killed, then it has already been released
+            if manager.task_not_aborted[i]
+                release!(manager.pool, 1)
+            else
+                release!(manager.pool, 2)
+            end
+
+            deleteat!(manager.task_not_aborted, i)
+
+            faces_done += 1
+
+        end
+    end
+
+    return unique_discriminants
+end
 
 #This function creates the web-based GUI for using PLD
 function openWindow()
 
-    display_window = Window()
+    global display_window = Window()
 
     # Define the HTML content
 	html_content = raw"""
@@ -168,6 +186,7 @@ function openWindow()
         align-items: center;
         min-height: 100vh;
         margin: 20px;
+        line-height: 1.4;
     }
     
     .container {
@@ -215,7 +234,7 @@ function openWindow()
 	<div class="container">
 
         <div class="box" id="box1">
-            <h1>PLD User Interface</h1>
+            <h1 style="font-size:30px">PLD User Interface</h1>
 
 	    <p style="line-height: 1.2">
 	    Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br>
@@ -224,10 +243,10 @@ function openWindow()
 	    </p>
 	    <br>
 
-            Edges e.g. [[1,2],[2,3],[1,3]] <input type="text" id="edges"> <br>
-            Internal Squared Masses e.g. [m1,0,m1,m2] <input type="text" id="internals"> <br>
-	        Nodes e.g. [1,2,3] <input type="text" id="nodes"> <br>
-            External Squared Masses e.g. [p1,p1,p2,0] <input type="text" id="externals"> <br>
+            Edges <input type="text" placeholder="e.g. [[1,2],[2,3],[1,3]]" id="edges"> <br>
+            Internal Squared Masses <input type="text" placeholder="e.g. [m1,0,m1,m2]" id="internals"> <br>
+	        Nodes  <input type="text" placeholder="e.g. [1,2,3]" id="nodes"> <br>
+            External Squared Masses <input type="text" placeholder="e.g. [p1,p1,p2,0]" id="externals"> <br>
             <button id="visualiseButton">Generate Diagram Visualisation</button>
             <br><br>
 
@@ -254,7 +273,7 @@ function openWindow()
 	    Face <input type="text" id="startF"> <br>
 	    </div>
 
-	    <br><br><br>
+	    <br><br><br><br><br><br>
 
 	    <input type="radio" id="normalCheckbox" name="runType" value="normal">
 	    <label for="normalCheckbox"> Run a full PLD calculation?</label><br>
@@ -302,13 +321,13 @@ function openWindow()
 				if (document.getElementById("continuingCheckbox").checked == true) {
 					var startCodim = document.getElementById("startC").value;
 					var startFace = document.getElementById("startF").value;
-					display_window.julia.receiveInput(edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Continue");
+					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Continue"]);
 				} else if (document.getElementById("startCheckbox").checked == true) {
 					var startCodim = document.getElementById("startC").value;
 					var startFace = document.getElementById("startF").value;
-					display_window.julia.receiveInput(edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Single Face");
+					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Single Face"]);
 				} else {
-					display_window.julia.receiveInput(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath);
+					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath]);
 				}
 
                 // Show that we have started successfully
@@ -480,6 +499,18 @@ function openWindow()
 
 	body!(display_window, html_content)
 
+    handle(display_window, "Start Calc") do args
+
+        if length(args) == 8
+            receiveInput(args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8])
+        else
+            receiveInput(args[1], args[2], args[3], args[4], args[5])
+        end
+
+    end
+
+    
+
 end
 
 function convertStringToArray(str)
@@ -504,8 +535,8 @@ function receiveInput(edgeInputs, nodeInputs, internalInputs, externalInputs, ou
 
 	for i in 1:length(allowed_chars)
 		for j in 1:length(edges)
-			var_name = Symbol(allowed_chars, j)
-			@eval @var $var_name
+			var_name = Symbol(allowed_chars[i], j)
+			@eval HomotopyContinuation.ModelKit.@var $var_name
 		end
 	end
 
@@ -529,15 +560,53 @@ function main(edges, nodes, internal_masses, external_masses, codim_start, face_
 
 	#The simplest runType is single face
 	if (runType == "Single Face")
-		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses, external_masses, :sym, codim_start = codim_start, face_start = face_start, single_face = true)
+        Contx = Ctx([], [], codim_start, face_start, 0, true, outputFilePath)
+		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
 	else
-		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses, external_masses, :sym, codim_start = codim_start, face_start = face_start, single_face = false)
+        Contx = Ctx([], [], codim_start, face_start, 0, false, outputFilePath)
+		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
 	end
 
 end
 
+#This function is an exact copy of getPLD, but using getPADMultithreaded
+function getPLDMultithreaded(edges, nodes; internal_masses = :zero, external_masses = :zero, high_prec = false, single_weight = nothing, verbose = false, homogeneous = true, save_output = "", load_output = "", Context = Ctx([],[],-1,1,0,false, "test.txt"))
+
+    U_oscar, F_oscar, pars_oscar, vars_oscar = getUF(edges, nodes; internal_masses = internal_masses, external_masses = external_masses)
+
+    if load_output == ""
+        discriminants = getPADMultithreaded(U_oscar + F_oscar, pars_oscar, vars_oscar; high_prec = high_prec, single_weight = single_weight, verbose = verbose, homogeneous = homogeneous, save_output = save_output, Context)
+    else
+        pars_string = [subscript_to_bracket(str) for str in string.(pars_oscar)]
+
+        if internal_masses == :generic
+            global m = Vector{fmpq_mpoly}(undef, length(edges))
+        end
+        if external_masses == :generic
+            global M = Vector{fmpq_mpoly}(undef, length(nodes))
+        end
+
+        global R, pars = PolynomialRing(QQ, pars_string)
+        eval(Meta.parse("global ("*join(pars_string, ", ")*") = pars"))
+
+        discriminants = []
+        open(load_output, "r") do f
+            for line in eachline(f)
+                # Extract discriminants using regex
+                disc = match(r"discriminant: (.+)$", line)
+                if disc != nothing
+                    push!(discriminants, eval(Meta.parse(replace("["*subscript_to_bracket(disc[1])*"]", "/" => "//"))))
+                end
+            end
+        end
+    end
+
+    return discriminants, pars_oscar, vars_oscar, U_oscar, F_oscar
+
+end
+
 #This function is an exact copy of getSpecializedPAD(), but with multithreading implemented for the loop over faces and some extra output code to update the GUI.
-function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, codim_start = -1, face_start = 1, single_face = false, single_weight = nothing, verbose = false, homogeneous = true, save_output = "")
+function getPADMultithreaded(f, pars, vars; high_prec = false, single_weight = nothing, verbose = false, homogeneous = true, save_output = "", Context = Ctx([],[],-1,1,0,false, "test.txt"))
 
     P = newton_polytope(f)
     Σ = normal_fan(P)
@@ -546,10 +615,10 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
     mons2 = collect(Oscar.monomials(f))
     coeff2 = collect(Oscar.coefficients(f))
 
-    discriminants = []
+    Context.discriminants = []
     unique_discriminants = []
 
-    min_codim = Oscar.ambient_dim(P) - Oscar.dim(P)
+    Context.min_codim = Oscar.ambient_dim(P) - Oscar.dim(P)
     fvector = Oscar.f_vector(P)
 
     if verbose
@@ -558,27 +627,27 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
         println("vars = [$(split(string(vars),'[')[2])");
         println("method = $(method)");
         println("high_prec = $(high_prec)");
-        println("codim_start = $(codim_start)");
-        println("face_start = $(face_start)");
-        println("single_face = $(single_face)");
+        println("codim_start = $(Context.codim_start)");
+        println("face_start = $(Context.face_start)");
+        println("single_face = $(Context.single_face)");
         println("single_weight = $(single_weight)");
         println("verbose = $(verbose)");
         println("homogeneous = $(homogeneous)");
-        println("save_output = $(save_output)");
+        println("save_output = $(Context.save_output)");
         println("f_fector = [$(split(string(fvector),'[')[2])\n");
     end
 
-    if codim_start < 0
-        codim_start = Oscar.ambient_dim(P)
+    if Context.codim_start < 0
+        Context.codim_start = Oscar.ambient_dim(P)
     end
 
     if single_weight !== nothing
-        single_face = true
+        Context.single_face = true
         weights = getWeights(f)
         indices = [(i, j) for i in 1:length(weights) for j in findall(x -> x == single_weight, weights[i])]
         if length(indices) > 0
-            codim_start = indices[1][1] - 1
-            face_start = indices[1][2]
+            Context.codim_start = indices[1][1] - 1
+            Context.face_start = indices[1][2]
         else
             printstyled("The specified weight $(single_weight) was not found\n"; color = :yellow)
             return
@@ -586,11 +655,10 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
     end
 
     #Set starting point
-    codim = codim_start
-    face = face_start
+    codim = Context.codim_start
+    face = Context.face_start
 
     #Store some info about the diagram
-    all_codim_cones = []
     faces_done = 0
     faces_todo = 0
 
@@ -598,9 +666,9 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
     PLD_manager = TaskPairManager(ThreadPool(nthreads()-1), [], [], [], [], [], [], timeout=300)
 
     #CALCULATE TOTAL FACES TO BE FOUND
-    for i = codim_start : -1 : min_codim + 1
-        push!(all_codim_cones, cones(Σ, i))
-        faces_todo += length(all_codim_cones[codim_start - i + 1])
+    for i = Context.codim_start : -1 : Context.min_codim + 1
+        push!(Context.codim_cones, cones(Σ, i))
+        faces_todo += length(Context.codim_cones[Context.codim_start - i + 1])
     end
 
     #One extra face for the minimum codim
@@ -609,11 +677,11 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
     #Loop over all faces we need to compute
     while faces_done < faces_todo
 
-        if PLD_manager.pool.acquire!(2)
+        if acquire!(PLD_manager.pool, 2)
 
             #Find the arguments of getSpecializedDiscriminant()
-            if codim > min_codim
-                weight = sum(Oscar.rays(all_codim_cones[codim][face-1]))
+            if codim > Context.min_codim
+                weight = sum(Oscar.rays(Context.codim_cones[codim][face]))
                 vals = convert.(Rational{Int64}, [transpose(weight)*e for e in E2] )
                 mininds = findall(weight -> weight == minimum(vals), vals)
                 IF = transpose(coeff2[mininds])*mons2[mininds]
@@ -622,10 +690,14 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
                 IF = f
             end
 
-            task_manager.start_pair(IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
+            start_pair(PLD_manager, IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
+
+            #Display to GUI
+            #output_string = "Started calculation on codim: " * string(codim) * ", face: " * string(face)
+            #@js display_window displayJuliaOutput($output_string)
 
             #Move on to the next face
-            if (face < length(all_codim_cones[codim_start - codim + 1]))
+            if (face < length(Context.codim_cones[Context.codim_start - codim + 1]))
                 face += 1
             else
                 face = 1
@@ -635,7 +707,7 @@ function getPADMultithreaded(f, pars, vars; method = :sym, high_prec = false, co
         end
 
         #This checks if any calculations have finished and handles their output if they have
-        PLD_manager.check_tasks()
+        unique_discriminants = check_tasks(PLD_manager, unique_discriminants, Context)
 
         #Sleep to avoid busy watching
         sleep(0.1)
@@ -648,34 +720,41 @@ end
 
 #Slightly modified version of the output code in getSpecializedPAD to allow for verbose output to the GUI
 #(and to account for some variable name changes!)
-function store_and_display_discs(disc, codim, face)
+function store_and_output_discs(disc, codim, face, unique_discriminants, Context)
+
+    if codim > Context.min_codim
+        weight = sum(Oscar.rays(Context.codim_cones[codim][face]))
+    else
+        weight = zeros(Int,Oscar.ambient_dim(P))
+    end
 
     len_before = length(unique_discriminants)
-    push!(discriminants, disc)
+    push!(Context.discriminants, disc)
 
     disc_string = [replace(s, "//" => "/") for s in string.(vcat(disc...))]
 
     append!(unique_discriminants, disc_string)
     unique_discriminants = sort(unique(unique_discriminants))
-    if codim > min_codim
-        noFaces = length(all_codim_cones[codim_start - codim])
+    if codim > Context.min_codim
+        noFaces = length(Context.codim_cones[Context.codim_start - codim + 1])
     else
         noFaces = 1
     end
 
-    printstyled("codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n"; color = :red)
-    if !single_face && isnothing(single_weight) && verbose println("") end
-    if save_output != ""
-        open(save_output, "a") do file
+    #printstyled("codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n"; color = :red)
+    #if !Context.single_face && isnothing(single_weight) && verbose println("") end
+    if Context.save_output != ""
+        open(Context.save_output, "a") do file
             print(file, "codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n")
         end
     end
 
     len_after = length(unique_discriminants)
 
-    if !single_face && isnothing(single_weight) && len_after > len_before
-        printstyled("New discriminants after codim $(codim), face $(face)/$(noFaces). The list is: $(join(unique_discriminants, ", "))\n"; color = :yellow)
-        if verbose println("") end
+    #if !Context.single_face && isnothing(single_weight) && len_after > len_before
+    if !Context.single_face && len_after > len_before
+        #printstyled("New discriminants after codim $(codim), face $(face)/$(noFaces). The list is: $(join(unique_discriminants, ", "))\n"; color = :yellow)
+        #if verbose println("") end
     end
 
     flush(stdout)
@@ -684,8 +763,11 @@ function store_and_display_discs(disc, codim, face)
     disc_string_out = (join(disc_string,", "))
 
     #Display also to Blink Window
-    @js Window.displayJuliaOutput("Most recent PLD calculation was codim:", string(codim), ", face:", string(face), "/", string(noFaces), ", weights:", weight_string,  ", discriminant:", disc_string_out)
-    
+    #output_string = string("Most recent PLD calculation was codim: ", string(codim), ", face: ", string(face), "/", string(noFaces), ", weights: ", weight_string,  ", discriminant: ", disc_string_out)
+    #@js display_window displayJuliaOutput($output_string)
+
+    return unique_discriminants
+
 end
 
 openWindow()

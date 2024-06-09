@@ -151,8 +151,8 @@ function HC_to_oscar_S(f,pars,vars)
     E, C = exponents_coefficients(f,vars)
     n = length(vars)
     m = length(pars)
-    R, a = PolynomialRing(QQ, ["a$i" for i = 1:m]) # Polynomial ring in the parameters
-    S, (x) = LaurentPolynomialRing(R, ["x$i" for i = 1:n]) # Polynomial ring with coefficients in R
+    R, a = polynomial_ring(QQ, ["a$i" for i = 1:m]) # Polynomial ring in the parameters
+    S, (x) = laurent_polynomial_ring(R, ["x$i" for i = 1:n]) # Polynomial ring with coefficients in R
     cffs_oscar = [HC_to_oscar_Q(g,a,pars) for g in C]
     sum([cffs_oscar[i]*prod(x.^E[:,i]) for i = 1:length(cffs_oscar)]), S
 end
@@ -171,14 +171,14 @@ function HC_to_oscar_S_mynames(f,pars,vars; parnames = [], varnames = [])
     n = length(vars)
     m = length(pars)
     if !isempty(parnames)
-        R, a = PolynomialRing(QQ, parnames)
+        R, a = polynomial_ring(QQ, parnames)
     else
-        R, a = PolynomialRing(QQ, ["a$i" for i = 1:m]) # Polynomial ring in the parameters
+        R, a = polynomial_ring(QQ, ["a$i" for i = 1:m]) # Polynomial ring in the parameters
     end
     if !isempty(varnames)
-        S, (x) = LaurentPolynomialRing(R, varnames)
+        S, (x) = laurent_polynomial_ring(R, varnames)
     else
-        S, (x) = LaurentPolynomialRing(R, ["x$i" for i = 1:n]) # Polynomial ring with coefficients in R
+        S, (x) = laurent_polynomial_ring(R, ["x$i" for i = 1:n]) # Polynomial ring with coefficients in R
     end
     cffs_oscar = [HC_to_oscar_Q(g,a,pars) for g in C]
     sum([cffs_oscar[i]*prod(x.^E[:,i]) for i = 1:length(cffs_oscar)]), S, a, x
@@ -205,7 +205,7 @@ function getSpecializedDiscriminant(F,x,a; method = :sym, high_prec = false, cod
         return [normalize_coeffs(coeffs[1])]
     else
         r = length(x)
-        T = PolynomialRing(QQ,vcat(vcat(["α$i" for i = 1:r],["y"]),string.(a)))
+        T = polynomial_ring(QQ,vcat(vcat(["α$i" for i = 1:r],["y"]),string.(a)))
         tvars = T[2]
         exps = collect(Oscar.AbstractAlgebra.exponent_vectors(F))
         new_mons = [prod(tvars[1:r].^e) for e in exps]
@@ -923,7 +923,7 @@ function getPLD(edges, nodes; internal_masses = :zero, external_masses = :zero, 
             global M = Vector{fmpq_mpoly}(undef, length(nodes))
         end
 
-        global R, pars = PolynomialRing(QQ, pars_string)
+        global R, pars = polynomial_ring(QQ, pars_string)
         eval(Meta.parse("global ("*join(pars_string, ", ")*") = pars"))
 
         discriminants = []
