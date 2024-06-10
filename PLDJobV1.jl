@@ -32,14 +32,14 @@ end
 edges = convertStringToArray(args[1]);
 nodes = convertStringToArray(args[2]);
 
-for i in 1:parse(Int,args[3])   
-    var_name = Symbol("m", i)
-    @eval @var $var_name
-end
+#Here, we create the symbolic variables for the masses
+allowed_chars = ["m","M","q","Q","l","L","p","P"]
 
-for i in 1:parse(Int,args[3])   
-    var_name = Symbol("M", i)
-    @eval @var $var_name
+for i in 1:length(allowed_chars)
+    for j in 1:length(edges)
+        var_name = Symbol(allowed_chars[i], j)
+        @eval HomotopyContinuation.ModelKit.@var $var_name
+    end
 end
 
 internal_masses = convertStringToArray(args[4]);
