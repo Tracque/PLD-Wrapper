@@ -1,6 +1,5 @@
 import subprocess
 import re
-import sympy as sym
 import time
 import os
 
@@ -146,14 +145,12 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,1],[2,5]]
-    nodes =  [1,3,4,6,7]
-    masses = [sym.Symbol("m1"),sym.Symbol("m2"),sym.Symbol("m3"),sym.Symbol("m4"),sym.Symbol("m5"),sym.Symbol("m6")]  
-    internalM = [sym.Symbol("M1"),sym.Symbol("M2"),sym.Symbol("M3"),sym.Symbol("M4"),sym.Symbol("M5"),sym.Symbol("M6")]  
-    numberOfMasses = 5
-    internal_masses =  [0,0,0,0,0,0,0,0]
-    external_masses =  [0,masses[1],0,0,masses[4]]
-    save_output = 'FivePoint_2Loop_2mass_squarepent'
+    edges =  [[1,2],[2,3],[3,4],[1,4]]
+    nodes =  [1,2,3,4]
+    numberOfMasses = 4
+    internal_masses =  "[0,0,0,0,0,0,0,0]"
+    external_masses =  "[p1,0,p2,p3]"
+    save_output = 'box'
 
     args = [edges, nodes, numberOfMasses, internal_masses, external_masses, save_output, 1, 10, "num"]
 
