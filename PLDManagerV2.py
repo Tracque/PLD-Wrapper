@@ -3,10 +3,22 @@ import re
 import time
 import os
 
+#TODO: Julia Script to find and output all face/codim numbers DONE
+#Thus, fix the stepping over to the next face/codim DONE
+#Clean up output files properly (delete them)
+#Investigate if the numeric threads are even running properly?
+#Queue the extra processes to protect system resources
 
-def run_julia_script(script_path, inputfile, args,  timeout=180, output_file="output.txt", method = "sym"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, output_file="output.txt", method = "sym"):
 
     num_processes = []
+
+    save_output = args[4] + ".dat"
+    face_start = args[6]
+    codim_start = args[5]
+
+    if codim_start < 0:
+        codim_start = codims[0]
 
     try:
         # Construct the command to run Julia script
@@ -25,6 +37,7 @@ def run_julia_script(script_path, inputfile, args,  timeout=180, output_file="ou
         while True:
             time.sleep(10)  # Avoid busy watching 
 
+            #Done want to continue checking and potentially starting new processes when finished
             if symTasksDone != True:
 
                 elapsed_time = time.time() - start_time
@@ -32,50 +45,77 @@ def run_julia_script(script_path, inputfile, args,  timeout=180, output_file="ou
                 if elapsed_time > float(timeout) and symTaskFinishedLoading:
                     print("Timeout reached. Julia script is taking too long. Restarting...")
 
-                    with open("output.txt", "r") as file:
+                    with open(save_output, "r") as file:
                         lines = file.readlines()
 
                         if not lines:
-                            print(f"File {file_path} is empty. The Julia process must not have started correctly...")
+                            print(f"File {save_output} is empty. The Julia process must not have started correctly...")
                             return None, None
 
                         last_line = lines[-1]
 
-                    # Update parameters as needed
+                    # Use regex to match the last line (most recent output)
                     match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', last_line)
 
-                    if match == False: #Symbolic couldn't complete the first face
-                        codim_start, face_start, next_codim_start, next_face_start = incrementFace(str(args[4]) + ".dat", next_face_start, next_codim_start)
-                    else:
-                        codim_start, face_start, next_codim_start, next_face_start = read_codim_face_from_file(str(args[4]) + ".dat")
+                    if int(match.group(2)) < face_start or int(match.group(1)) > codim_start: #Symbolic couldn't complete the first face
 
-                    if codim_start == None or next_face_start == None:
+                        #If couldn't complete first face, then need to retry it numerically and increment the face
+                        print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
+                        print("Starting a new process to try numerical method.")
+                        print("-----------")
+
+                        args[5] = codim_start
+                        args[6] = face_start
+                        args[7] = "num"
+
+                        with open("PLDinputs.txt", 'w') as file: 
+                            for arg in args:
+                                file.write(f"{arg}\n")
+
+                        #Create a new process to try the numeric method in the background
+                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
+                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+
+                        codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
+
+                    else: #Symbolic method computed at least one face
+
+                        #Read what the failed face was
+                        codim_start, face_start = read_codim_face_from_file(str(args[4]) + ".dat")
+
+                        #Now retry the failed face numerically and increment the face
+                        print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
+                        print("Starting a new process to try numerical method.")
+                        print("-----------")
+
+                        args[5] = codim_start
+                        args[6] = face_start
+                        args[7] = "num"
+
+                        with open("PLDinputs.txt", 'w') as file: 
+                            for arg in args:
+                                file.write(f"{arg}\n")
+
+                        #Create a new process to try the numeric method in the background
+                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
+                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+
+                        codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
+
+                    if codim_start == None:
                         break
 
                     main_process.terminate()  # Terminate the existing process
 
-                    print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
-                    print("Starting a new process to try numerical method.")
-                    print("-----------")
-
-                    args[5] = codim_start
-                    args[6] = face_start
-                    args[7] = "num"
-
-                    with open("PLDinputs.txt", 'w') as file: 
-                        for arg in args:
-                            file.write(f"{arg}\n")
-
-                    #Create a new process to try the numeric method in the background
-                    with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                        num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
-
                     #Continue with symbolic calculations 
+
+                    if os.path.exists(output_file):
+                        os.remove(output_file)  # Clean up the output file
                     
                     print("Continuing on with symbolic calculation in parallel.")
 
-                    args[5] = next_codim_start
-                    args[6] = next_face_start
+                    args[5] = codim_start
+                    args[6] = face_start
                     args[7] = "sym"
 
                     with open("PLDinputs.txt", 'w') as file: 
@@ -85,25 +125,14 @@ def run_julia_script(script_path, inputfile, args,  timeout=180, output_file="ou
                     with open(output_file, "w") as output_file_handle:
                         main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)               
 
+                    start_time = time.time()
                     symTaskFinishedLoading = False
 
-                file = open(output_file, "r")
+                # Check the last modification time of the output file
+                last_modification_time = os.path.getmtime(output_file)
 
-                lines = file.readlines()
-
-                if len(lines) > 0:
-
-                    # Check the last modification time of the output file
-                    last_modification_time = os.path.getmtime(output_file)
-
-                    last_line = lines[-1]
-
-                    if last_line == "Finished.":
-                        symTasksDone = True
-
-                    
-
-                file.close()
+                if main_process.poll() != None:
+                    symTasksDone = True
 
                 if last_modification_time > start_time:
                     symTaskFinishedLoading = True
@@ -133,23 +162,20 @@ def run_julia_script(script_path, inputfile, args,  timeout=180, output_file="ou
 
     return 0
 
-def incrementFace(file_path, prev_face, prev_codim):
+def increment_face(codim, face, codim_array, face_array):
 
-    with open(file_path, "r") as file:
-        lines = file.readlines()
+    try:
+        index = codim_array.index(codim)
 
-        last_line = lines[-1]
+        if face == face_array[index]: #if this is the last face of this codim
+            codim -= 1
+            face = 1
+        else:
+            face += 1
+    except ValueError:
+        print("Something has gone wrong, and the codim is not in the allowed set!")
 
-        # Update parameters as needed
-        match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', last_line)
-
-        next_face = prev_face + 1
-
-        if next_face > match.group(3):
-            next_codim = prev_codim - 1
-            next_face = 1
-
-    return next_face, next_codim
+    return codim, face
 
 def read_codim_face_from_file(file_path):
     try:
@@ -171,8 +197,6 @@ def read_codim_face_from_file(file_path):
             if match:
                 codim = int(match.group(1))
                 face = int(match.group(2)) + 1
-                next_codim = codim
-                next_face = face + 1
 
                 if codim == 0:
                     return None, None, None
@@ -180,17 +204,8 @@ def read_codim_face_from_file(file_path):
                 if int(match.group(2)) == int(match.group(3)):
                     codim -= 1
                     face = 1
-                    next_codim = codim
-                    if next_codim != 0:
-                        next_face = 2
-                    else:
-                        next_face = None
-                elif int(match.group(2)) == int(match.group(3)) -1:
-                    next_codim -= 1
-                    next_face = 1
 
-            
-                return codim, face, next_codim, next_face
+                return codim, face
             else:
 
                 print(f"Unable to extract codim and face from the last line of {file_path}.")
@@ -199,6 +214,33 @@ def read_codim_face_from_file(file_path):
     except FileNotFoundError:
         print(f"File {file_path} not found.")
         return None, None
+    
+def get_faces_codims(script_path, input_file_path):
+
+    command = ["julia", script_path] + input_file_path
+
+    with open("output.txt", "w") as output_file_handle:
+            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+
+    while True:
+        time.sleep(10) #Avoid busy watching
+
+        if main_process.poll() != None:
+
+            with open("output.txt", "r") as file:
+
+                lines = file.readlines()
+
+                os.remove("output.txt")  # Clean up the output file
+                codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
+
+                return convert_string_to_array(codim_string), convert_string_to_array(face_string)
+                
+def convert_string_to_array(string):
+
+    elements = string.split(",")
+
+    return [int(e) for e in elements]
 
 
 def main():
@@ -225,8 +267,14 @@ def main():
     with open("PLDinputs.txt", 'w') as file: 
         for arg in args:
             file.write(f"{arg}\n")
+
+    #Find codims/faces
+    get_faces_path = "PLDGetFaces.jl"
+    print("Extracting faces and codimensions")
+    codim_array, face_array = get_faces_codims(get_faces_path, ["PLDinputs.txt"])
+    print("Starting calculation of singularities")
     
-    run_julia_script(julia_script_path, ["PLDinputs.txt"], args)
+    run_julia_script(julia_script_path, ["PLDinputs.txt"], args, codim_array, face_array)
 
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
 

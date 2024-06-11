@@ -1,159 +1,216 @@
-push!(LOAD_PATH,string(pwd() * "/src")) #Adjust this to be the correct path to the PLD source files
+using Distributed
 
-using ThreadingUtilities
-using Base.Threads: @spawn, fetch, nthreads, threadid
-using Base.Threads: Atomic, atomic_add!
-using Pkg; Pkg.activate()
+@everywhere begin
 
-using Oscar
-using HomotopyContinuation
-using PLD
+    push!(LOAD_PATH,string(pwd() * "/src")) #Adjust this to be the correct path to the PLD source files
 
-using Blink #For GUI
+    using ThreadingUtilities
+    using Base.Threads: @spawn, fetch, nthreads, threadid
+    using Base.Threads: Atomic, atomic_add!
+    using Pkg; Pkg.activate()
 
-#Struct to help keep track of available threads
-mutable struct ThreadPool
-    max_threads::Int
-    available_threads::Atomic{Int}
-    
-	#Constructor for the struct
-    function ThreadPool(max_threads::Int)
-        return new(max_threads, Atomic{Int}(max_threads))
-    end
-end
+    using Oscar
+    using HomotopyContinuation
+    using PLD
 
-#This struct stores some important variables we need to carry through the program
-mutable struct Ctx
-    discriminants::Array
-    codim_cones::Array
-    codim_start::Int
-    face_start::Int
-    min_codim::Int
-    single_face::Bool
-    save_output::String
+    using Blink #For GUI
 
-    #Contructor for the struct
-    function Ctx(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
-        return new(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
-    end
-
-end
-
-#Method to check if the threads are available
-function acquire!(pool::ThreadPool, n::Int)
-    available = atomic_add!(pool.available_threads, -n)
-    if available >= 0
-        return true
-    else
-        atomic_add!(pool.available_threads, n)
-		return false
-    end
-end
-
-#Method to release threads back into the pool
-function release!(pool::ThreadPool, n::Int)
-    atomic_add!(pool.available_threads, n)
-end
-
-#This struct will allow us to manage the symbolic and numeric tasks
-mutable struct TaskPairManager
-    pool::ThreadPool
-    sym_tasks::Array
-    num_tasks::Array
-    task_start_times::Array
-    task_not_aborted::Array
-    task_codim::Array
-    task_face::Array
-    timeout::Int
-
-    #Constructor of the struct
-    function TaskPairManager(pool::ThreadPool, sym_tasks::Array, num_tasks::Array, task_start_times::Array, task_not_aborted::Array, task_codim::Array, task_face::Array; timeout::Int)
-        return new(pool, sym_tasks, num_tasks, task_start_times, task_not_aborted, task_codim, task_face, timeout)
-    end
-
-end
-
-function start_pair(manager::TaskPairManager, IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
-    #Create and keep track of 2 new tasks (symbolic and numeric for this face)
-    push!(manager.sym_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :sym, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
-    push!(manager.num_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :num, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
-
-    push!(manager.task_not_aborted, true)
-
-    #Keep note of when we started each task pair
-    push!(manager.task_start_times, time())
-
-    #Keep note of the current face and codim
-    push!(manager.task_codim, codim)
-    push!(manager.task_face, face)
-end
-
-function check_tasks(manager::TaskPairManager, unique_discriminants::Array, Context::Ctx)
-    for i = 1 : 1 : length(manager.sym_tasks)
-        if istaskdone(manager.sym_tasks[i])
-
-            if manager.task_not_aborted[i] #Only try to fetch results if the process finished normally, not if we killed it ourselves
-
-                #Get, store and display output
-                disc = fetch(manager.sym_tasks[i])
-                unique_discriminants = store_and_output_discs(disc, manager.task_codim[i], manager.task_face[i], unique_discriminants, Context)
-
-                #Kill the other thread
-                Base.throwto(manager.num_tasks[i], InterruptException())
-
-                #Remove the now dead tasks from the tracking arrays
-                deleteat!(manager.sym_tasks, i)
-                deleteat!(manager.num_tasks, i)
-                deleteat!(manager.task_start_times, i)
-                deleteat!(manager.task_not_aborted, i)
-
-                release!(manager.pool, 2)
-
-                faces_done += 1
-            
-            end
+    #Struct to help keep track of available threads
+    mutable struct ThreadPool
+        max_threads::Int
+        available_threads::Atomic{Int}
         
-        #The symbolic thread shouldn't take long if it succeeds, so we time it out after a while
-        elseif manager.task_not_aborted[i] && (time() - manager.task_start_times[i] > manager.timeout)
-
-            #Kill the symbolic thread if it has been too long
-            Base.throwto(manger.sym_tasks[i], InterruptException())
-
-            #Release the symbolic thread
-            manager.pool.release(1)
-
-            #Update the status of this thread
-            manager.task_not_aborted[i] = false
-
-        elseif istaskdone(manager.num_tasks[i])
-            
-            #Get, store and display output
-            disc = fetch(manager.num_tasks[i])
-            unique_discriminants = store_and_output_discs(disc, manager.task_codim, manager.task_face, unique_discriminants, Context)
-
-            #Kill the other thread
-            Base.throwto(manager.sym_tasks[i], InterruptException())
-
-            #Remove the now dead tasks from the array
-            deleteat!(manager.sym_tasks, i)
-            deleteat!(manager.num_tasks, i)
-            deleteat!(manager.task_start_times, i)
-
-            #If the symbolic task has already been killed, then it has already been released
-            if manager.task_not_aborted[i]
-                release!(manager.pool, 1)
-            else
-                release!(manager.pool, 2)
-            end
-
-            deleteat!(manager.task_not_aborted, i)
-
-            faces_done += 1
-
+        #Constructor for the struct
+        function ThreadPool(max_threads::Int)
+            return new(max_threads, Atomic{Int}(max_threads))
         end
     end
 
-    return unique_discriminants
+    #This struct stores some important variables we need to carry through the program
+    mutable struct Ctx
+        discriminants::Array
+        codim_cones::Array
+        codim_start::Int
+        face_start::Int
+        min_codim::Int
+        single_face::Bool
+        save_output::String
+
+        #Contructor for the struct
+        function Ctx(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
+            return new(discriminants, codim_cones, codim_start, face_start, min_codim, single_face, save_output)
+        end
+
+    end
+
+    #Method to check if the threads are available
+    function acquire!(pool::ThreadPool, n::Int)
+        available = atomic_add!(pool.available_threads, -n)
+        if available >= 0
+            return true
+        else
+            atomic_add!(pool.available_threads, n)
+            return false
+        end
+    end
+
+    #Method to release threads back into the pool
+    function release!(pool::ThreadPool, n::Int)
+        atomic_add!(pool.available_threads, n)
+    end
+
+    #This struct will allow us to manage the symbolic and numeric tasks
+    mutable struct TaskPairManager
+        pool::ThreadPool
+        sym_tasks::Array
+        num_tasks::Array
+        task_start_times::Array
+        task_not_aborted::Array
+        task_codim::Array
+        task_face::Array
+        timeout::Int
+
+        #Constructor of the struct
+        function TaskPairManager(sym_tasks::Array, num_tasks::Array, task_start_times::Array, task_not_aborted::Array, task_codim::Array, task_face::Array; timeout::Int)
+            return new(sym_tasks, num_tasks, task_start_times, task_not_aborted, task_codim, task_face, timeout)
+        end
+
+    end
+
+    function start_pair(manager::TaskPairManager, IF, vars, pars, high_prec, codim, verbose, homogeneous, face)
+        #Create and keep track of 2 new tasks (symbolic and numeric for this face)
+        push!(manager.sym_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :sym, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
+        push!(manager.num_tasks, @spawn getSpecializedDiscriminant(IF,vars,pars; method = :num, high_prec = high_prec, codim = codim, verbose = verbose, homogeneous = homogeneous))
+
+        push!(manager.task_not_aborted, true)
+
+        #Keep note of when we started each task pair
+        push!(manager.task_start_times, time())
+
+        #Keep note of the current face and codim
+        push!(manager.task_codim, codim)
+        push!(manager.task_face, face)
+    end
+
+    function check_tasks(manager::TaskPairManager, unique_discriminants::Array, Context::Ctx)
+        for i = 1 : 1 : length(manager.sym_tasks)
+            if istaskdone(manager.sym_tasks[i])
+
+                if manager.task_not_aborted[i] #Only try to fetch results if the process finished normally, not if we killed it ourselves
+
+                    #Get, store and display output
+                    disc = fetch(manager.sym_tasks[i])
+                    unique_discriminants = store_and_output_discs(disc, manager.task_codim[i], manager.task_face[i], unique_discriminants, Context)
+
+                    #Kill the other thread
+                    Base.throwto(manager.num_tasks[i], InterruptException())
+
+                    #Remove the now dead tasks from the tracking arrays
+                    deleteat!(manager.sym_tasks, i)
+                    deleteat!(manager.num_tasks, i)
+                    deleteat!(manager.task_start_times, i)
+                    deleteat!(manager.task_not_aborted, i)
+
+                    release!(manager.pool, 2)
+
+                    faces_done += 1
+                
+                end
+            
+            #The symbolic thread shouldn't take long if it succeeds, so we time it out after a while
+            elseif manager.task_not_aborted[i] && (time() - manager.task_start_times[i] > manager.timeout)
+
+                #Kill the symbolic thread if it has been too long
+                Base.throwto(manger.sym_tasks[i], InterruptException())
+
+                #Release the symbolic thread
+                manager.pool.release(1)
+
+                #Update the status of this thread
+                manager.task_not_aborted[i] = false
+
+            elseif istaskdone(manager.num_tasks[i])
+                
+                #Get, store and display output
+                disc = fetch(manager.num_tasks[i])
+                unique_discriminants = store_and_output_discs(disc, manager.task_codim, manager.task_face, unique_discriminants, Context)
+
+                #Kill the other thread
+                Base.throwto(manager.sym_tasks[i], InterruptException())
+
+                #Remove the now dead tasks from the array
+                deleteat!(manager.sym_tasks, i)
+                deleteat!(manager.num_tasks, i)
+                deleteat!(manager.task_start_times, i)
+
+                #If the symbolic task has already been killed, then it has already been released
+                if manager.task_not_aborted[i]
+                    release!(manager.pool, 1)
+                else
+                    release!(manager.pool, 2)
+                end
+
+                deleteat!(manager.task_not_aborted, i)
+
+                faces_done += 1
+
+            end
+        end
+
+        return unique_discriminants
+    end
+
+    #Slightly modified version of the output code in getSpecializedPAD to allow for verbose output to the GUI
+    #(and to account for some variable name changes!)
+    function store_and_output_discs(disc, codim, face, unique_discriminants, Context)
+
+        if codim > Context.min_codim
+            weight = sum(Oscar.rays(Context.codim_cones[codim][face]))
+        else
+            weight = zeros(Int,Oscar.ambient_dim(P))
+        end
+
+        len_before = length(unique_discriminants)
+        push!(Context.discriminants, disc)
+
+        disc_string = [replace(s, "//" => "/") for s in string.(vcat(disc...))]
+
+        append!(unique_discriminants, disc_string)
+        unique_discriminants = sort(unique(unique_discriminants))
+        if codim > Context.min_codim
+            noFaces = length(Context.codim_cones[Context.codim_start - codim + 1])
+        else
+            noFaces = 1
+        end
+
+        #printstyled("codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n"; color = :red)
+        #if !Context.single_face && isnothing(single_weight) && verbose println("") end
+        if Context.save_output != ""
+            open(Context.save_output, "a") do file
+                print(file, "codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n")
+            end
+        end
+
+        len_after = length(unique_discriminants)
+
+        #if !Context.single_face && isnothing(single_weight) && len_after > len_before
+        if !Context.single_face && len_after > len_before
+            #printstyled("New discriminants after codim $(codim), face $(face)/$(noFaces). The list is: $(join(unique_discriminants, ", "))\n"; color = :yellow)
+            #if verbose println("") end
+        end
+
+        flush(stdout)
+
+        weight_string = string([(join(string.(vcat(weight...)),", "))])
+        disc_string_out = (join(disc_string,", "))
+
+        #Display also to Blink Window
+        #output_string = string("Most recent PLD calculation was codim: ", string(codim), ", face: ", string(face), "/", string(noFaces), ", weights: ", weight_string,  ", discriminant: ", disc_string_out)
+        #@js display_window displayJuliaOutput($output_string)
+
+        return unique_discriminants
+
+    end
 end
 
 #This function creates the web-based GUI for using PLD
@@ -162,7 +219,7 @@ function openWindow()
     global display_window = Window()
 
     # Define the HTML content
-	html_content = raw"""
+    html_content = raw"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -170,7 +227,7 @@ function openWindow()
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>PLD User Interface</title>
 
-	<style>
+    <style>
     /* Basic reset */
     * {
         margin: 0;
@@ -231,69 +288,69 @@ function openWindow()
     </head>
     <body>
 
-	<div class="container">
+    <div class="container">
 
         <div class="box" id="box1">
             <h1 style="font-size:30px">PLD User Interface</h1>
 
-	    <p style="line-height: 1.2">
-	    Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br>
-	    I have tried to allow for many possible variable labels for the squared masses, including p, P, m, M, q, Q, l and L. (as in m1, m2, m3,... or similar) <br>
-	    You should ensure you align the edges/internal masses and the nodes/external masses. For example, this means if your edges are input as [[1,2],...], then the internal mass array [m1,...] will set the mass of the [1,2] edge to m1.
-	    </p>
-	    <br>
+        <p style="line-height: 1.2">
+        Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br>
+        I have tried to allow for many possible variable labels for the squared masses, including p, P, m, M, q, Q, l and L. (as in m1, m2, m3,... or similar) <br>
+        You should ensure you align the edges/internal masses and the nodes/external masses. For example, this means if your edges are input as [[1,2],...], then the internal mass array [m1,...] will set the mass of the [1,2] edge to m1.
+        </p>
+        <br>
 
             Edges <input type="text" placeholder="e.g. [[1,2],[2,3],[1,3]]" id="edges"> <br>
             Internal Squared Masses <input type="text" placeholder="e.g. [m1,0,m1,m2]" id="internals"> <br>
-	        Nodes  <input type="text" placeholder="e.g. [1,2,3]" id="nodes"> <br>
+            Nodes  <input type="text" placeholder="e.g. [1,2,3]" id="nodes"> <br>
             External Squared Masses <input type="text" placeholder="e.g. [p1,p1,p2,0]" id="externals"> <br>
             <button id="visualiseButton">Generate Diagram Visualisation</button>
             <br><br>
 
-	    <p style="line-height: 1.2">
+        <p style="line-height: 1.2">
             Note: The provided visualisation is algorithmically generated and is not supposed to produce literature ready diagrams.<br>
             The visualisation places all vertices at the vertices of a regular polygon and will not avoid intersecting lines for non-planar diagrams. <br>
             Dashed lines represent massless propagators. Solid lines represent massive propagators.<br>
-	    The vertex labelled "1" will be the rightmost vertex, with subsequent vertices being labelled clockwise. <br>
-	    </p>
-	
-	    <br>
+        The vertex labelled "1" will be the rightmost vertex, with subsequent vertices being labelled clockwise. <br>
+        </p>
+    
+        <br>
 
-	    <div style="float:left">
-	    <input type="radio" id="continuingCheckbox" name="runType" value="continue">
-	    <label for="continuingCheckbox"> Continue an existing calculation?</label><br>
-	    Starting codim <input type="text" id="startC"> <br>
-	    Starting face <input type="text" id="startF"> <br>
-	    </div>
+        <div style="float:left">
+        <input type="radio" id="continuingCheckbox" name="runType" value="continue">
+        <label for="continuingCheckbox"> Continue an existing calculation?</label><br>
+        Starting codim <input type="text" id="startC"> <br>
+        Starting face <input type="text" id="startF"> <br>
+        </div>
 
-	    <div style="float:right">
-	    <input type="radio" id="startCheckbox" name="runType" value="singleFace">
-	    <label for="startCheckbox"> Calculate singularities on a single face?</label><br>
-	    Codim <input type="text" id="startC"> <br>
-	    Face <input type="text" id="startF"> <br>
-	    </div>
+        <div style="float:right">
+        <input type="radio" id="startCheckbox" name="runType" value="singleFace">
+        <label for="startCheckbox"> Calculate singularities on a single face?</label><br>
+        Codim <input type="text" id="startC"> <br>
+        Face <input type="text" id="startF"> <br>
+        </div>
 
-	    <br><br><br><br><br><br>
+        <br><br><br><br><br><br>
 
-	    <input type="radio" id="normalCheckbox" name="runType" value="normal">
-	    <label for="normalCheckbox"> Run a full PLD calculation?</label><br>
+        <input type="radio" id="normalCheckbox" name="runType" value="normal">
+        <label for="normalCheckbox"> Run a full PLD calculation?</label><br>
 
-	    Below, input the desired output file name or path and name for the calculation.
+        Below, input the desired output file name or path and name for the calculation.
 
-	    File Path <input type="text" id="filePath"> <br>
+        File Path <input type="text" id="filePath"> <br>
 
-	    <button id="startButton">Start Calculation</button>
+        <button id="startButton">Start Calculation</button>
 
-		
-
-	</div>
         
 
-	<div class="box" id="box2">
-       	<canvas id="Visualisation" height="800" width="800"></canvas> <br>
+    </div>
+        
+
+    <div class="box" id="box2">
+        <canvas id="Visualisation" height="800" width="800"></canvas> <br>
 
 
-	</div>
+    </div>
 
     </div>
 
@@ -304,50 +361,50 @@ function openWindow()
         <p style="font-size:20px" id="outputPara">Output will appear here.</p>
     </div>
 
-	</div>
+    </div>
 
         
 
         <script>
-			// JavaScript function to send the input value to Julia
-			function sendInputToJulia() {
-				var edgeInputs = document.getElementById("edges").value;
-				var nodeInputs = document.getElementById("nodes").value;
-				var internalInputs = document.getElementById("internals").value;
-				var externalInputs = document.getElementById("externals").value;
-				var outputFilePath = document.getElementById("filePath").value;
+            // JavaScript function to send the input value to Julia
+            function sendInputToJulia() {
+                var edgeInputs = document.getElementById("edges").value;
+                var nodeInputs = document.getElementById("nodes").value;
+                var internalInputs = document.getElementById("internals").value;
+                var externalInputs = document.getElementById("externals").value;
+                var outputFilePath = document.getElementById("filePath").value;
 
-				
-				if (document.getElementById("continuingCheckbox").checked == true) {
-					var startCodim = document.getElementById("startC").value;
-					var startFace = document.getElementById("startF").value;
-					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Continue"]);
-				} else if (document.getElementById("startCheckbox").checked == true) {
-					var startCodim = document.getElementById("startC").value;
-					var startFace = document.getElementById("startF").value;
-					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Single Face"]);
-				} else {
-					Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath]);
-				}
+                
+                if (document.getElementById("continuingCheckbox").checked == true) {
+                    var startCodim = document.getElementById("startC").value;
+                    var startFace = document.getElementById("startF").value;
+                    Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Continue"]);
+                } else if (document.getElementById("startCheckbox").checked == true) {
+                    var startCodim = document.getElementById("startC").value;
+                    var startFace = document.getElementById("startF").value;
+                    Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, startCodim, startFace, outputFilePath, "Single Face"]);
+                } else {
+                    Blink.msg("Start Calc", [edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath]);
+                }
 
                 // Show that we have started successfully
                 document.getElementById("outputPara").innerText = "PLD is starting. Output should appear here soon...";
-			}
+            }
 
             function displayJuliaOutput(outputTxt) {
                 document.getElementById("outputPara").innerText = outputTxt;
             }
 
-			function generatePolygonCoords(edges, nodes) {
+            function generatePolygonCoords(edges, nodes) {
 
-				// Find the number of points we need
-				points = 0;
+                // Find the number of points we need
+                points = 0;
 
-				for (i=0; i < edges.length; i++) {
-					if (Math.max(...edges[i]) > points) {
-						points = Math.max(...edges[i]);
-					}
-				}
+                for (i=0; i < edges.length; i++) {
+                    if (Math.max(...edges[i]) > points) {
+                        points = Math.max(...edges[i]);
+                    }
+                }
 
                 for (i=0; i < points; i++) {
                     coords.push([xCentre + size * Math.cos(i * 2 * Math.PI / points), yCentre + size * Math.sin(i * 2 * Math.PI / points)]);
@@ -358,32 +415,32 @@ function openWindow()
                     }
                 }
 
-			}
-			
-				// To allow for visualisation of multiple edges connected to the same two vertices
-			function checkDegeneracy(array,index) {
+            }
+            
+                // To allow for visualisation of multiple edges connected to the same two vertices
+            function checkDegeneracy(array,index) {
                 var degeneracy = 0;
                     for (i=0; i < index; i++) {
                     if ((array[i][0] == array[index][0] && array[i][1] == array[index][1]) || (array[i][0] == array[index][1] && array[i][1] == array[index][0])) {
                     degeneracy++;
                     }
                 }
-			return degeneracy;
-			}
+            return degeneracy;
+            }
 
-			// To make the degenerate edges always point outwards (this is just some extra case handling for [n,1] edges)
-			function outwardBezier(edges, i) {
-			    if ((edges[i][0] == 1 && edges[i][1] == points) || (edges[i][1] == 1 && edges[i][0] == points)) {
-				    return [xCentre - (size + bezierSize * checkDegeneracy(edges, i)) * Math.cos((edges[i][0] + edges[i][1] -2) * Math.PI / points), yCentre - (size + bezierSize * checkDegeneracy(edges, i)) * Math.sin((edges[i][0] + edges[i][1] -2) * Math.PI / points)];
-				} else {
-				    return [xCentre + (size + bezierSize * checkDegeneracy(edges, i)) * Math.cos((edges[i][0] + edges[i][1] -2) * Math.PI / points), yCentre + (size + bezierSize * checkDegeneracy(edges, i)) * Math.sin((edges[i][0] + edges[i][1] -2) * Math.PI / points)];
-				}
-			}
+            // To make the degenerate edges always point outwards (this is just some extra case handling for [n,1] edges)
+            function outwardBezier(edges, i) {
+                if ((edges[i][0] == 1 && edges[i][1] == points) || (edges[i][1] == 1 && edges[i][0] == points)) {
+                    return [xCentre - (size + bezierSize * checkDegeneracy(edges, i)) * Math.cos((edges[i][0] + edges[i][1] -2) * Math.PI / points), yCentre - (size + bezierSize * checkDegeneracy(edges, i)) * Math.sin((edges[i][0] + edges[i][1] -2) * Math.PI / points)];
+                } else {
+                    return [xCentre + (size + bezierSize * checkDegeneracy(edges, i)) * Math.cos((edges[i][0] + edges[i][1] -2) * Math.PI / points), yCentre + (size + bezierSize * checkDegeneracy(edges, i)) * Math.sin((edges[i][0] + edges[i][1] -2) * Math.PI / points)];
+                }
+            }
 
             function drawDiagram(edges, nodes, internal_masses, external_masses) {
 
                 // Clear the canvas
-				ctx.setLineDash([]);
+                ctx.setLineDash([]);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.strokeStyle = "black";
                 ctx.strokeRect(0, 0, canvas.width, canvas.height);
@@ -410,48 +467,48 @@ function openWindow()
                 var external_masses = externalInputs.replace(/^\[|\]$/g, '').split(',');
                 external_masses = external_masses.map(item => item.trim());
 
-				coords = [];
-				externalLines = [];
+                coords = [];
+                externalLines = [];
                 
                 generatePolygonCoords(edges, nodes);
 
                 // Start drawing the diagram.
                 for (i=0; i < edges.length; i++) {
 
-					// If this if the first edge between these two vertices, just draw a line
-					if (checkDegeneracy(edges, i) == 0) {
-						if (internal_masses[i] == "0") {
-							ctx.beginPath();
-							ctx.setLineDash([10, 15]);
-							ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
-							ctx.lineTo(coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
-							ctx.stroke();
-						} else {
-							ctx.beginPath();
-							ctx.setLineDash([]);
-							ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
-							ctx.lineTo(coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
-							ctx.stroke();
-						}
-					// If this is a degenerate edge, draw extras as increasingly wide bezier curves
-					} else {
-						bezierCoords = outwardBezier(edges, i);
-						bezierX = bezierCoords[0];
-						bezierY = bezierCoords[1];
-						if (internal_masses[i] == "0") {
-							ctx.beginPath();
-							ctx.setLineDash([10, 15]);
-							ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
-							ctx.quadraticCurveTo(bezierX, bezierY, coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
-							ctx.stroke();
-						} else {
-							ctx.beginPath();
-							ctx.setLineDash([]);
-							ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
-							ctx.quadraticCurveTo(bezierX, bezierY, coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
-							ctx.stroke();
-						}
-	  	 	   		}
+                    // If this if the first edge between these two vertices, just draw a line
+                    if (checkDegeneracy(edges, i) == 0) {
+                        if (internal_masses[i] == "0") {
+                            ctx.beginPath();
+                            ctx.setLineDash([10, 15]);
+                            ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
+                            ctx.lineTo(coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
+                            ctx.stroke();
+                        } else {
+                            ctx.beginPath();
+                            ctx.setLineDash([]);
+                            ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
+                            ctx.lineTo(coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
+                            ctx.stroke();
+                        }
+                    // If this is a degenerate edge, draw extras as increasingly wide bezier curves
+                    } else {
+                        bezierCoords = outwardBezier(edges, i);
+                        bezierX = bezierCoords[0];
+                        bezierY = bezierCoords[1];
+                        if (internal_masses[i] == "0") {
+                            ctx.beginPath();
+                            ctx.setLineDash([10, 15]);
+                            ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
+                            ctx.quadraticCurveTo(bezierX, bezierY, coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
+                            ctx.stroke();
+                        } else {
+                            ctx.beginPath();
+                            ctx.setLineDash([]);
+                            ctx.moveTo(coords[edges[i][0] -1][0], coords[edges[i][0] -1][1]);
+                            ctx.quadraticCurveTo(bezierX, bezierY, coords[edges[i][1] -1][0], coords[edges[i][1] -1][1]);
+                            ctx.stroke();
+                        }
+                    }
                 }
 
                 // Draw external legs
@@ -474,30 +531,30 @@ function openWindow()
 
             }
 
-	    	var canvas = document.getElementById("Visualisation");
+            var canvas = document.getElementById("Visualisation");
             var ctx = canvas.getContext("2d");
-	    	var coords = []; 
-	  	  	var externalLines = [];
-	    	var points = 0;
+            var coords = []; 
+            var externalLines = [];
+            var points = 0;
 
-	    	var xCentre = canvas.width / 2;
+            var xCentre = canvas.width / 2;
             var yCentre = canvas.height / 2;
             var size = 150;
             var externalSize = 300;
-	    	var bezierSize = 50;
-	    	var bezierX, bezierY;
-	    	var bezierCoords;
+            var bezierSize = 50;
+            var bezierX, bezierY;
+            var bezierCoords;
 
             // Add event listeners to the buttons
-			document.getElementById('visualiseButton').addEventListener('click', drawDiagram);
-			document.getElementById('startButton').addEventListener('click', sendInputToJulia);
+            document.getElementById('visualiseButton').addEventListener('click', drawDiagram);
+            document.getElementById('startButton').addEventListener('click', sendInputToJulia);
 
         </script>
     </body>
     </html>
     """
 
-	body!(display_window, html_content)
+    body!(display_window, html_content)
 
     handle(display_window, "Start Calc") do args
 
@@ -526,46 +583,46 @@ end
 
 function receiveInput(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim = -1, startFace = 1, runType = "Normal")
 
-	#First, we parse the edges and nodes
-	edges = convertStringToArray(edgeInputs)
-	nodes = convertStringToArray(nodeInputs)
+    #First, we parse the edges and nodes
+    edges = convertStringToArray(edgeInputs)
+    nodes = convertStringToArray(nodeInputs)
 
-	#Here, we create the symbolic variables for the masses
-	allowed_chars = ["m","M","q","Q","l","L","p","P"];
+    #Here, we create the symbolic variables for the masses
+    allowed_chars = ["m","M","q","Q","l","L","p","P"];
 
-	for i in 1:length(allowed_chars)
-		for j in 1:length(edges)
-			var_name = Symbol(allowed_chars[i], j)
-			@eval HomotopyContinuation.ModelKit.@var $var_name
-		end
-	end
+    for i in 1:length(allowed_chars)
+        for j in 1:length(edges)
+            var_name = Symbol(allowed_chars[i], j)
+            @eval HomotopyContinuation.ModelKit.@var $var_name
+        end
+    end
 
-	#Now we can parse the rest of our inputs
-	internal_masses = convertStringToArray(internalInputs)
-	external_masses = convertStringToArray(externalInputs)
+    #Now we can parse the rest of our inputs
+    internal_masses = convertStringToArray(internalInputs)
+    external_masses = convertStringToArray(externalInputs)
 
-	if (isa(startCodim, String))
-		codim_start = convertStringToArray(startCodim)
-		face_start = convertStringToArray(startFace)
-	else
-		codim_start = startCodim
-		face_start = startFace
-	end
+    if (isa(startCodim, String))
+        codim_start = convertStringToArray(startCodim)
+        face_start = convertStringToArray(startFace)
+    else
+        codim_start = startCodim
+        face_start = startFace
+    end
 
-	#With all our inputs handled, we pass over to the main function
-	main(edges, nodes, internal_masses, external_masses, codim_start, face_start, outputFilePath, runType)
+    #With all our inputs handled, we pass over to the main function
+    main(edges, nodes, internal_masses, external_masses, codim_start, face_start, outputFilePath, runType)
 end
 
 function main(edges, nodes, internal_masses, external_masses, codim_start, face_start, outputFilePath, runType)
 
-	#The simplest runType is single face
-	if (runType == "Single Face")
+    #The simplest runType is single face
+    if (runType == "Single Face")
         Contx = Ctx([], [], codim_start, face_start, 0, true, outputFilePath)
-		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
-	else
+        PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
+    else
         Contx = Ctx([], [], codim_start, face_start, 0, false, outputFilePath)
-		PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
-	end
+        PLD, kinematic_vars, schwinger_pars, U, F = getPLDMultithreaded(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, Context = Contx)
+    end
 
 end
 
@@ -607,6 +664,8 @@ end
 
 #This function is an exact copy of getSpecializedPAD(), but with multithreading implemented for the loop over faces and some extra output code to update the GUI.
 function getPADMultithreaded(f, pars, vars; high_prec = false, single_weight = nothing, verbose = false, homogeneous = true, save_output = "", Context = Ctx([],[],-1,1,0,false, "test.txt"))
+
+    addprocs(nthreads() - 2)
 
     P = newton_polytope(f)
     Σ = normal_fan(P)
@@ -663,7 +722,7 @@ function getPADMultithreaded(f, pars, vars; high_prec = false, single_weight = n
     faces_todo = 0
 
     #Create a struct to manage multithreading of calculations
-    PLD_manager = TaskPairManager(ThreadPool(nthreads()-1), [], [], [], [], [], [], timeout=300)
+    PLD_manager = TaskPairManager(nthreads()-2, [], [], [], [], [], [], timeout=300)
 
     #CALCULATE TOTAL FACES TO BE FOUND
     for i = Context.codim_start : -1 : Context.min_codim + 1
@@ -716,58 +775,6 @@ function getPADMultithreaded(f, pars, vars; high_prec = false, single_weight = n
 
     return(discriminants)
     
-end
-
-#Slightly modified version of the output code in getSpecializedPAD to allow for verbose output to the GUI
-#(and to account for some variable name changes!)
-function store_and_output_discs(disc, codim, face, unique_discriminants, Context)
-
-    if codim > Context.min_codim
-        weight = sum(Oscar.rays(Context.codim_cones[codim][face]))
-    else
-        weight = zeros(Int,Oscar.ambient_dim(P))
-    end
-
-    len_before = length(unique_discriminants)
-    push!(Context.discriminants, disc)
-
-    disc_string = [replace(s, "//" => "/") for s in string.(vcat(disc...))]
-
-    append!(unique_discriminants, disc_string)
-    unique_discriminants = sort(unique(unique_discriminants))
-    if codim > Context.min_codim
-        noFaces = length(Context.codim_cones[Context.codim_start - codim + 1])
-    else
-        noFaces = 1
-    end
-
-    #printstyled("codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n"; color = :red)
-    #if !Context.single_face && isnothing(single_weight) && verbose println("") end
-    if Context.save_output != ""
-        open(Context.save_output, "a") do file
-            print(file, "codim: $(codim), face: $(face)/$(noFaces), weights: [$(join(string.(vcat(weight...)),", "))], discriminant: $(join(disc_string,", "))\n")
-        end
-    end
-
-    len_after = length(unique_discriminants)
-
-    #if !Context.single_face && isnothing(single_weight) && len_after > len_before
-    if !Context.single_face && len_after > len_before
-        #printstyled("New discriminants after codim $(codim), face $(face)/$(noFaces). The list is: $(join(unique_discriminants, ", "))\n"; color = :yellow)
-        #if verbose println("") end
-    end
-
-    flush(stdout)
-
-    weight_string = string([(join(string.(vcat(weight...)),", "))])
-    disc_string_out = (join(disc_string,", "))
-
-    #Display also to Blink Window
-    #output_string = string("Most recent PLD calculation was codim: ", string(codim), ", face: ", string(face), "/", string(noFaces), ", weights: ", weight_string,  ", discriminant: ", disc_string_out)
-    #@js display_window displayJuliaOutput($output_string)
-
-    return unique_discriminants
-
 end
 
 openWindow()
