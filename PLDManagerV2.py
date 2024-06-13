@@ -1,17 +1,20 @@
 import subprocess
+import psutil
 import re
 import time
 import os
 
 #TODO: Julia Script to find and output all face/codim numbers DONE
 #Thus, fix the stepping over to the next face/codim DONE
-#Clean up output files properly (delete them)
-#Investigate if the numeric threads are even running properly?
-#Queue the extra processes to protect system resources
+#Clean up output files properly (delete them) DONE
+#Investigate if the numeric threads are even running properly? STILL TODO
+#Queue the extra processes to protect system resources DONE?
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, output_file="output.txt", method = "sym"):
 
     num_processes = []
+    num_queue = []
+    last_num_start_time = time.time()
 
     save_output = args[4] + ".dat"
     face_start = args[6]
@@ -37,7 +40,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
         while True:
             time.sleep(10)  # Avoid busy watching 
 
-            #Done want to continue checking and potentially starting new processes when finished
+            #Don't want to continue checking and potentially starting new processes when already finished
             if symTasksDone != True:
 
                 elapsed_time = time.time() - start_time
@@ -68,13 +71,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                         args[6] = face_start
                         args[7] = "num"
 
-                        with open("PLDinputs.txt", 'w') as file: 
-                            for arg in args:
-                                file.write(f"{arg}\n")
-
-                        #Create a new process to try the numeric method in the background
-                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+                        num_queue.append(args)
 
                         codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
@@ -92,22 +89,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                         args[6] = face_start
                         args[7] = "num"
 
-                        with open("PLDinputs.txt", 'w') as file: 
-                            for arg in args:
-                                file.write(f"{arg}\n")
-
-                        #Create a new process to try the numeric method in the background
-                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
-
+                        num_queue.append(args)
+                        
                         codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
                     if codim_start == None:
                         break
 
                     main_process.terminate()  # Terminate the existing process
-
-                    #Continue with symbolic calculations 
 
                     if os.path.exists(output_file):
                         os.remove(output_file)  # Clean up the output file
@@ -127,6 +116,23 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
 
                     start_time = time.time()
                     symTaskFinishedLoading = False
+
+                    #Now check if we have the resources to start a numeric process 
+                    #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
+                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
+
+                        with open("PLDinputs.txt", 'w') as file: 
+                            for arg in num_queue[0]:
+                                file.write(f"{arg}\n")
+
+                        #Create a new process to try the numeric method in the background
+                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
+                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+
+                        num_queue.pop(0)
+
+                        last_num_start_time = time.time()
+                            
 
                 # Check the last modification time of the output file
                 last_modification_time = os.path.getmtime(output_file)
@@ -149,6 +155,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                     numTasksDone = False
                     
             if symTasksDone and numTasksDone:
+
+                for i in len(num_processes):
+                    os.remove("numOutput" + str(i+1) + ".txt") #Clean up output files
+
                 break
 
     except subprocess.CalledProcessError as e:
