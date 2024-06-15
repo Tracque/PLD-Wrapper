@@ -64,6 +64,7 @@ end
 
 
 # Open and write to file
+raw"""
 open(string(diagramName, ".txt"), "w") do file
     write(file, string(diagramName, "\n\n"))
     write(file, "edges: $(edges)\n")
@@ -76,5 +77,6 @@ open(string(diagramName, ".txt"), "w") do file
     write(file, "F: $(F)\n\n")
     write(file, "discriminants: $(PrincipleLandauDet)\n")
 end
+"""
 
 println("Finished.")

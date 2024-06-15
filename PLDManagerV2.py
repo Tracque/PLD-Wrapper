@@ -3,6 +3,7 @@ import psutil
 import re
 import time
 import os
+import copy
 
 #TODO: Julia Script to find and output all face/codim numbers DONE
 #Thus, fix the stepping over to the next face/codim DONE
@@ -10,15 +11,23 @@ import os
 #Investigate if the numeric threads are even running properly? STILL TODO
 #Queue the extra processes to protect system resources DONE?
 
-def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, output_file="output.txt", method = "sym"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, output_file="output.txt"):
 
     num_processes = []
     num_queue = []
     last_num_start_time = time.time()
+    no_sym_processes = 1
 
-    save_output = args[4] + ".dat"
+    diagram_name = args[4]
+    save_output = diagram_name + "_" + str(no_sym_processes)
+    args[4] = save_output
     face_start = args[6]
     codim_start = args[5]
+
+    #write arguments to file
+    with open("PLDinputs.txt", 'w') as file: 
+        for arg in args:
+            file.write(f"{arg}\n")
 
     if codim_start < 0:
         codim_start = codims[0]
@@ -48,11 +57,11 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                 if elapsed_time > float(timeout) and symTaskFinishedLoading:
                     print("Timeout reached. Julia script is taking too long. Restarting...")
 
-                    with open(save_output, "r") as file:
+                    with open(save_output + ".dat", "r") as file:
                         lines = file.readlines()
 
                         if not lines:
-                            print(f"File {save_output} is empty. The Julia process must not have started correctly...")
+                            print(f"File {save_output + ".dat"} is empty. The Julia process must not have started correctly...")
                             return None, None
 
                         last_line = lines[-1]
@@ -71,14 +80,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                         args[6] = face_start
                         args[7] = "num"
 
-                        num_queue.append(args)
+                        num_queue.append(copy.copy(args))
 
                         codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
                     else: #Symbolic method computed at least one face
 
                         #Read what the failed face was
-                        codim_start, face_start = read_codim_face_from_file(str(args[4]) + ".dat")
+                        codim_start, face_start = read_codim_face_from_file(save_output + ".dat")
 
                         #Now retry the failed face numerically and increment the face
                         print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
@@ -89,7 +98,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                         args[6] = face_start
                         args[7] = "num"
 
-                        num_queue.append(args)
+                        num_queue.append(copy.copy(args))
                         
                         codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
@@ -100,9 +109,13 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
 
                     if os.path.exists(output_file):
                         os.remove(output_file)  # Clean up the output file
-                    
+
+                    no_sym_processes += 1
+                    save_output = diagram_name + "_" + str(no_sym_processes) + ".dat"
+
                     print("Continuing on with symbolic calculation in parallel.")
 
+                    args[4] = save_output
                     args[5] = codim_start
                     args[6] = face_start
                     args[7] = "sym"
@@ -122,9 +135,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                     if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80:
                         #and psutil.virtual_memory().percent < 80
 
-                        #Give the numeric subprocess it's own input and output files
+                        #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
-                        num_queue[0][5] = "num_output_" + str(len(num_processes) + 1) + ".txt"
+                        num_queue[0][4] = diagram_name + "_num_" + str(len(num_processes) + 1)
+                        num_queue[0][7] = "num"
 
                         with open(num_inputs, 'w') as file: 
                             for arg in num_queue[0]:
@@ -188,7 +202,7 @@ def increment_face(codim, face, codim_array, face_array):
         else:
             face += 1
     except ValueError:
-        print("Something has gone wrong, and the codim is not in the allowed set!")
+        print("Something has gone wrong, the codim is not in the allowed set!")
 
     return codim, face
 
