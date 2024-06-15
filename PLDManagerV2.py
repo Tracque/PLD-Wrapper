@@ -119,15 +119,20 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
+                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80:
+                        #and psutil.virtual_memory().percent < 80
 
-                        with open("PLDinputs.txt", 'w') as file: 
+                        #Give the numeric subprocess it's own input and output files
+                        num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
+                        num_queue[0][5] = "num_output_" + str(len(num_processes) + 1) + ".txt"
+
+                        with open(num_inputs, 'w') as file: 
                             for arg in num_queue[0]:
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
                         with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                            num_processes.append(subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+                            num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
 
                         num_queue.pop(0)
 
@@ -241,10 +246,16 @@ def get_faces_codims(script_path, input_file_path):
 
                 lines = file.readlines()
 
-                os.remove("output.txt")  # Clean up the output file
-                codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
+                if not lines:
 
-                return convert_string_to_array(codim_string), convert_string_to_array(face_string)
+                    continue
+
+                else:
+
+                    codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
+                    os.remove("output.txt")  # Clean up the output file
+
+                    return convert_string_to_array(codim_string), convert_string_to_array(face_string)
                 
 def convert_string_to_array(string):
 
