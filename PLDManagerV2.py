@@ -11,16 +11,13 @@ import copy
 #Investigate if the numeric threads are even running properly? STILL TODO
 #Queue the extra processes to protect system resources DONE?
 
-def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, output_file="output.txt"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, load_timeout=120, output_file="output.txt"):
 
     num_processes = []
     num_queue = []
     last_num_start_time = time.time()
-    no_sym_processes = 1
 
-    diagram_name = args[4]
-    save_output = diagram_name + "_" + str(no_sym_processes)
-    args[4] = save_output
+    save_output = args[4]
     face_start = args[6]
     codim_start = args[5]
 
@@ -54,7 +51,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
 
                 elapsed_time = time.time() - start_time
 
-                if elapsed_time > float(timeout) and symTaskFinishedLoading:
+                if (elapsed_time > float(timeout) and symTaskFinishedLoading) or elapsed_time > float(load_timeout):
                     print("Timeout reached. Julia script is taking too long. Restarting...")
 
                     with open(save_output + ".dat", "r") as file:
@@ -69,7 +66,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                     # Use regex to match the last line (most recent output)
                     match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', last_line)
 
-                    if int(match.group(2)) < face_start or int(match.group(1)) > codim_start: #Symbolic couldn't complete the first face
+                    if (int(match.group(2)) < face_start and int(match.group(1)) == codim_start) or int(match.group(1)) > codim_start: #Symbolic couldn't complete the first face
 
                         #If couldn't complete first face, then need to retry it numerically and increment the face
                         print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
@@ -110,12 +107,8 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                     if os.path.exists(output_file):
                         os.remove(output_file)  # Clean up the output file
 
-                    no_sym_processes += 1
-                    save_output = diagram_name + "_" + str(no_sym_processes) + ".dat"
-
                     print("Continuing on with symbolic calculation in parallel.")
 
-                    args[4] = save_output
                     args[5] = codim_start
                     args[6] = face_start
                     args[7] = "sym"
@@ -137,7 +130,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
-                        num_queue[0][4] = diagram_name + "_num_" + str(len(num_processes) + 1)
+                        num_queue[0][4] = save_output+ "_num_" + str(len(num_processes) + 1)
                         num_queue[0][7] = "num"
 
                         with open(num_inputs, 'w') as file: 
@@ -175,7 +168,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, ou
                     
             if symTasksDone and numTasksDone:
 
+                os.remove("PLDinputs.txt")
+
                 for i in len(num_processes):
+                    os.remove("PLDinputs" + str(i+1) + ".txt")
                     os.remove("numOutput" + str(i+1) + ".txt") #Clean up output files
 
                 break
@@ -284,9 +280,7 @@ def main():
 
     # Initial parameters
     edges =  [[1,2],[2,3],[3,4],[4,1]]
-    nodes =  [1,2,3,4]
-    #masses = [sym.Symbol("m1"),sym.Symbol("m2"),sym.Symbol("m3"),sym.Symbol("m4"),sym.Symbol("m5"),sym.Symbol("m6")]  
-    #internalM = [sym.Symbol("M1"),sym.Symbol("M2"),sym.Symbol("M3"),sym.Symbol("M4"),sym.Symbol("M5"),sym.Symbol("M6")]  
+    nodes =  [1,2,3,4] 
     internal_masses_strings =  ["m1", "m2", "m3", "m4"]
     internal_masses = "[" + ",".join(internal_masses_strings) + "]"
     external_masses_strings =  ["p1", "p2", "p3", "p4"]
