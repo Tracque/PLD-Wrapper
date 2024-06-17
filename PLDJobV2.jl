@@ -56,6 +56,8 @@ println("external_masses: $external_masses")
 println("diagramName: $diagramName")
 println()
 
+flush(stdout)
+
 if args[8] == "sym"
     PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".dat"), codim_start = codimStart, face_start = faceStart, method = :sym)
 else

@@ -4,14 +4,12 @@ import re
 import time
 import os
 import copy
+import glob
 
-#TODO: Julia Script to find and output all face/codim numbers DONE
-#Thus, fix the stepping over to the next face/codim DONE
-#Clean up output files properly (delete them) DONE
-#Investigate if the numeric threads are even running properly? STILL TODO
-#Queue the extra processes to protect system resources DONE?
+#TODO: Implement GUI (likely also keep a non-GUI version)
+#TODO: Look into flushing output to avoid needing an extra load timeout
 
-def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, load_timeout=120, output_file="output.txt"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, output_file="output.txt"):
 
     num_processes = []
     num_queue = []
@@ -51,14 +49,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
 
                 elapsed_time = time.time() - start_time
 
-                if (elapsed_time > float(timeout) and symTaskFinishedLoading) or elapsed_time > float(load_timeout):
+                if (elapsed_time > float(timeout) and symTaskFinishedLoading):
                     print("Timeout reached. Julia script is taking too long. Restarting...")
 
                     with open(save_output + ".dat", "r") as file:
                         lines = file.readlines()
 
                         if not lines:
-                            print(f"File {save_output + ".dat"} is empty. The Julia process must not have started correctly...")
+                            print("Output file is empty. The Julia process must not have started correctly...")
                             return None, None
 
                         last_line = lines[-1]
@@ -79,7 +77,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
 
                         num_queue.append(copy.copy(args))
 
-                        codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
+                        if codim_start == codims[-1]:
+                            symTasksDone = True
+                        else:
+                            codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
                     else: #Symbolic method computed at least one face
 
@@ -97,7 +98,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
 
                         num_queue.append(copy.copy(args))
                         
-                        codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
+                        if codim_start == codims[-1]:
+                            symTasksDone = True
+                        else:
+                            codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
                     if codim_start == None:
                         break
@@ -107,21 +111,22 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
                     if os.path.exists(output_file):
                         os.remove(output_file)  # Clean up the output file
 
-                    print("Continuing on with symbolic calculation in parallel.")
+                    if symTasksDone == False:
+                        print("Continuing on with symbolic calculation in parallel.")
 
-                    args[5] = codim_start
-                    args[6] = face_start
-                    args[7] = "sym"
+                        args[5] = codim_start
+                        args[6] = face_start
+                        args[7] = "sym"
 
-                    with open("PLDinputs.txt", 'w') as file: 
-                        for arg in args:
-                            file.write(f"{arg}\n")
+                        with open("PLDinputs.txt", 'w') as file: 
+                            for arg in args:
+                                file.write(f"{arg}\n")
 
-                    with open(output_file, "w") as output_file_handle:
-                        main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)               
+                        with open(output_file, "w") as output_file_handle:
+                            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)               
 
-                    start_time = time.time()
-                    symTaskFinishedLoading = False
+                        start_time = time.time()
+                        symTaskFinishedLoading = False
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
@@ -147,7 +152,8 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
                             
 
                 # Check the last modification time of the output file
-                last_modification_time = os.path.getmtime(output_file)
+                if symTasksDone == False:
+                    last_modification_time = os.path.getmtime(output_file)
 
                 if main_process.poll() != None:
                     symTasksDone = True
@@ -170,7 +176,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=60, lo
 
                 os.remove("PLDinputs.txt")
 
-                for i in len(num_processes):
+                for i in range(len(num_processes)):
                     os.remove("PLDinputs" + str(i+1) + ".txt")
                     os.remove("numOutput" + str(i+1) + ".txt") #Clean up output files
 
@@ -267,6 +273,51 @@ def get_faces_codims(script_path, input_file_path):
 
                     return convert_string_to_array(codim_string), convert_string_to_array(face_string)
                 
+def compile_diagram_data(diagram_name):
+
+    all_output = []
+
+    #First open the main (symbolic) output file
+    with open(diagram_name + ".dat", "r") as file:
+
+        lines = file.readlines()
+
+        for line in lines:
+            match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
+            codim = match.group(1)
+            face = match.group(2)
+            all_output.append([line, codim, face])
+
+    #Next, find all numeric files
+    current_directory = os.path.dirname(os.path.abspath(__file__))
+
+    num_files = glob.glob(diagram_name + "_num_*.dat")
+
+    print(num_files)
+
+    for file in num_files:
+
+        with open(file, "r") as f:
+
+            line = f.readlines()[0]
+
+            match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
+            codim = match.group(1)
+            face = match.group(2)
+            all_output.append([line, codim, face])
+
+    sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]))
+
+    #We have extracted all the output now, so can clean up the output files
+    os.remove(diagram_name + ".dat")
+
+    for file in num_files:
+        os.remove(file)
+
+    final_output =  [output[0] for output in sorted_output]
+
+    return final_output
+                
 def convert_string_to_array(string):
 
     elements = string.split(",")
@@ -306,6 +357,13 @@ def main():
     run_julia_script(julia_script_path, ["PLDinputs.txt"], args, codim_array, face_array)
 
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
+    lines = compile_diagram_data(save_output)
+
+    with open("square.dat", "w") as file:
+        for line in lines:
+            file.write(f"{line}")
+
+    print("Output cleaned up, sorted and printed to file: " + save_output + ".dat")
 
 if __name__ == "__main__":
     main()
