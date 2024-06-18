@@ -7,7 +7,6 @@ import copy
 import glob
 
 #TODO: Implement GUI (likely also keep a non-GUI version)
-#TODO: Look into flushing output to avoid needing an extra load timeout
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, output_file="output.txt"):
 
@@ -52,7 +51,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                 if (elapsed_time > float(timeout) and symTaskFinishedLoading):
                     print("Timeout reached. Julia script is taking too long. Restarting...")
 
-                    with open(save_output + ".dat", "r") as file:
+                    with open(save_output + ".txt", "r") as file:
                         lines = file.readlines()
 
                         if not lines:
@@ -85,7 +84,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                     else: #Symbolic method computed at least one face
 
                         #Read what the failed face was
-                        codim_start, face_start = read_codim_face_from_file(save_output + ".dat")
+                        codim_start, face_start = read_codim_face_from_file(save_output + ".txt")
 
                         #Now retry the failed face numerically and increment the face
                         print("Symbolic method got stuck at codim " + str(codim_start) + " and on face " + str(face_start))
@@ -278,7 +277,7 @@ def compile_diagram_data(diagram_name):
     all_output = []
 
     #First open the main (symbolic) output file
-    with open(diagram_name + ".dat", "r") as file:
+    with open(diagram_name + ".txt", "r") as file:
 
         lines = file.readlines()
 
@@ -286,12 +285,12 @@ def compile_diagram_data(diagram_name):
             match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
             codim = match.group(1)
             face = match.group(2)
-            all_output.append([line, codim, face])
+            all_output.append([line + "(sym)", codim, face])
 
     #Next, find all numeric files
     current_directory = os.path.dirname(os.path.abspath(__file__))
 
-    num_files = glob.glob(diagram_name + "_num_*.dat")
+    num_files = glob.glob(diagram_name + "_num_*.txt")
 
     print(num_files)
 
@@ -302,14 +301,16 @@ def compile_diagram_data(diagram_name):
             line = f.readlines()[0]
 
             match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
-            codim = match.group(1)
-            face = match.group(2)
-            all_output.append([line, codim, face])
+
+            if match != None:
+                codim = match.group(1)
+                face = match.group(2)
+                all_output.append([line + "(num)", codim, face])
 
     sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]))
 
     #We have extracted all the output now, so can clean up the output files
-    os.remove(diagram_name + ".dat")
+    os.remove(diagram_name + ".txt")
 
     for file in num_files:
         os.remove(file)
@@ -332,16 +333,15 @@ def main():
     # Initial parameters
     edges =  [[1,2],[2,3],[3,4],[4,1]]
     nodes =  [1,2,3,4] 
-    internal_masses_strings =  ["m1", "m2", "m3", "m4"]
-    internal_masses = "[" + ",".join(internal_masses_strings) + "]"
-    external_masses_strings =  ["p1", "p2", "p3", "p4"]
-    external_masses = "[" + ",".join(external_masses_strings) + "]"
-    save_output = 'square'
+    internal_masses =  "[m1, m2, m3, m4]"
+    external_masses =  "[p1, p2, p3, p4]"
+    save_output = 'box'
     codim_start = -1
     face_start = 1
     method = "sym"
+    single_face = False
 
-    args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method]
+    args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face]
 
     #write arguments to file
     with open("PLDinputs.txt", 'w') as file: 
@@ -359,11 +359,11 @@ def main():
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
     lines = compile_diagram_data(save_output)
 
-    with open("square.dat", "w") as file:
+    with open("square.txt", "a") as file:
         for line in lines:
             file.write(f"{line}")
 
-    print("Output cleaned up, sorted and printed to file: " + save_output + ".dat")
+    print("Output cleaned up, sorted and printed to file: " + save_output + ".txt")
 
 if __name__ == "__main__":
     main()

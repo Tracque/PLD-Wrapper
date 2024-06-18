@@ -54,6 +54,8 @@ println("external_masses: $external_masses")
 println()
 println("Finding codims and faces")
 
+flush(stdout)
+
 codim_array = []
 face_array = []
 

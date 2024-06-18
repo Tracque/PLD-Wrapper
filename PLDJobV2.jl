@@ -58,27 +58,32 @@ println()
 
 flush(stdout)
 
-if args[8] == "sym"
-    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".dat"), codim_start = codimStart, face_start = faceStart, method = :sym)
+if args[9] == "True"
+    single_face = true
 else
-    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".dat"), codim_start = codimStart, face_start = faceStart, method = :num, single_face = true)
+    single_face = false
+end
+
+if args[8] == "sym"
+    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :sym, single_face = single_face)
+else
+    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :num, single_face = true)
 end 
 
 
 # Open and write to file
-raw"""
-open(string(diagramName, ".txt"), "w") do file
-    write(file, string(diagramName, "\n\n"))
-    write(file, "edges: $(edges)\n")
-    write(file, "nodes: $(nodes)\n")
-    write(file, "internal_masses: $(internal_masses)\n")
-    write(file, "external_masses: $(external_masses)\n\n")
-    write(file, "schwinger parameters: $(vars)\n")  #Confusingly, pars are the variables and vars are the parameters!
-    write(file, "kinematic variables: $(pars)\n\n")
-    write(file, "U: $(U)\n")
-    write(file, "F: $(F)\n\n")
-    write(file, "discriminants: $(PrincipleLandauDet)\n")
+if args[8] == "sym"
+    open(string(diagramName, "_info.txt"), "w") do file
+        write(file, string(diagramName, "\n\n"))
+        write(file, "edges: $(edges)\n")
+        write(file, "nodes: $(nodes)\n")z
+        write(file, "internal_masses: $(internal_masses)\n")
+        write(file, "external_masses: $(external_masses)\n\n")
+        write(file, "schwinger parameters: $(vars)\n")  #Confusingly, pars are the variables and vars are the parameters!
+        write(file, "kinematic variables: $(pars)\n\n")
+        write(file, "U: $(U)\n")
+        write(file, "F: $(F)\n\n")
+    end
 end
-"""
 
 println("Finished.")
