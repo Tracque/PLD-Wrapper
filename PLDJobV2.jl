@@ -65,18 +65,13 @@ else
 end
 
 if args[8] == "sym"
-    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :sym, single_face = single_face)
-else
-    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :num, single_face = true)
-end 
 
+    U, F, pars, vars = getUF(edges, nodes, internal_masses=internal_masses, external_masses=external_masses)
 
-# Open and write to file
-if args[8] == "sym"
     open(string(diagramName, "_info.txt"), "w") do file
         write(file, string(diagramName, "\n\n"))
         write(file, "edges: $(edges)\n")
-        write(file, "nodes: $(nodes)\n")z
+        write(file, "nodes: $(nodes)\n")
         write(file, "internal_masses: $(internal_masses)\n")
         write(file, "external_masses: $(external_masses)\n\n")
         write(file, "schwinger parameters: $(vars)\n")  #Confusingly, pars are the variables and vars are the parameters!
@@ -84,6 +79,10 @@ if args[8] == "sym"
         write(file, "U: $(U)\n")
         write(file, "F: $(F)\n\n")
     end
-end
+
+    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :sym, single_face = single_face)
+else
+    PrincipleLandauDet, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, save_output=string(diagramName, ".txt"), codim_start = codimStart, face_start = faceStart, method = :num, single_face = true)
+end 
 
 println("Finished.")

@@ -6,7 +6,9 @@ import os
 import copy
 import glob
 
-#TODO: Implement GUI (likely also keep a non-GUI version)
+#TODO: Implement GUI (keep a non-GUI version)
+#TODO: Separate script for cleanup (since PLD might not terminate)
+#TODO: Benchmark the wrapper. This had better be faster!
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, output_file="output.txt"):
 
@@ -285,7 +287,7 @@ def compile_diagram_data(diagram_name):
             match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
             codim = match.group(1)
             face = match.group(2)
-            all_output.append([line + "(sym)", codim, face])
+            all_output.append(["(sym) " + line, codim, face])
 
     #Next, find all numeric files
     current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -305,7 +307,7 @@ def compile_diagram_data(diagram_name):
             if match != None:
                 codim = match.group(1)
                 face = match.group(2)
-                all_output.append([line + "(num)", codim, face])
+                all_output.append(["(num) " + line, codim, face])
 
     sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]))
 
@@ -359,7 +361,7 @@ def main():
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
     lines = compile_diagram_data(save_output)
 
-    with open("square.txt", "a") as file:
+    with open(save_output + ".txt", "a") as file:
         for line in lines:
             file.write(f"{line}")
 
