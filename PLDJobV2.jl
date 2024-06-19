@@ -72,10 +72,10 @@ if args[8] == "sym"
         write(file, string(diagramName, "\n\n"))
         write(file, "edges: $(edges)\n")
         write(file, "nodes: $(nodes)\n")
-        write(file, "internal_masses: $(internal_masses)\n")
-        write(file, "external_masses: $(external_masses)\n\n")
-        write(file, "schwinger parameters: $(vars)\n")  #Confusingly, pars are the variables and vars are the parameters!
-        write(file, "kinematic variables: $(pars)\n\n")
+        write(file, "internal_masses: $(string(internal_masses))\n")
+        write(file, "external_masses: $(string(external_masses))\n\n")
+        write(file, "schwinger parameters: $(string(vars))\n")  #Confusingly, pars are the variables and vars are the parameters!
+        write(file, "kinematic variables: $(string(pars))\n\n")
         write(file, "U: $(U)\n")
         write(file, "F: $(F)\n\n")
     end

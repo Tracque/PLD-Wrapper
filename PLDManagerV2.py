@@ -367,5 +367,25 @@ def main():
 
     print("Output cleaned up, sorted and printed to file: " + save_output + ".txt")
 
+    #Print out final info to file
+
+    args[4] = save_output + ".txt"
+    args[5] = save_output + "_info.txt"
+
+    with open("ExtraInputs.txt", "w") as file:
+        for arg in args:
+            file.write(f"{arg}")
+
+    with open("output.txt", "w") as output_file_handle:
+            extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+
+    while True:
+        if extra_info_process.poll() == None:
+            continue
+        else:
+            break
+
+    print("Extra info printed to file: " + save_output + "_info.txt")
+
 if __name__ == "__main__":
     main()
