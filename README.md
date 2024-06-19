@@ -69,7 +69,7 @@ Currently, you must manually edit the variables in the PLDManager file and then 
 
 Once the GUI integration has been completed, if you run the version with the GUI, you will need to give your inputs in the input fields provided.
 
-Note: PLD-Wrapper.py limits its use of system resources, in an attempt not to fry your machine. If you are running PLD-Wrapper in a subsystem, or a VM, it will similarly attempt not to use all of the subsystem/VM resources. Make sure you 
+Note: PLD-Wrapper.py limits its use of system resources, in an attempt not to fry your machine. If you are running PLD-Wrapper in a subsystem, or a VM, it will similarly attempt not to use all of the subsystem/VM resources. Make sure you account for this when allocating resources to such a subsystem or VM.
 
 ## Acknowledgements
 
