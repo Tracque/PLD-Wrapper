@@ -289,9 +289,6 @@ def compile_diagram_data(diagram_name):
             face = match.group(2)
             all_output.append(["(sym) " + line, codim, face])
 
-    #Next, find all numeric files
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-
     num_files = glob.glob(diagram_name + "_num_*.txt")
 
     print(num_files)
@@ -366,7 +363,7 @@ def main():
 
     lines = compile_diagram_data(save_output)
 
-    with open(save_output + ".txt", "a") as file:
+    with open(save_output + ".txt", "w") as file:
         for line in lines:
             file.write(f"{line}")
 
