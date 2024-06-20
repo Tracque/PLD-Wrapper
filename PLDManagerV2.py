@@ -359,6 +359,11 @@ def main():
     run_julia_script(julia_script_path, ["PLDinputs.txt"], args, codim_array, face_array)
 
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
+
+    print("-----------")
+
+    print("Compiling output...")
+
     lines = compile_diagram_data(save_output)
 
     with open(save_output + ".txt", "a") as file:
@@ -367,6 +372,10 @@ def main():
 
     print("Output cleaned up, sorted and printed to file: " + save_output + ".txt")
 
+    print("-----------")
+
+    print("Finally, creating an info file with extra output...")
+
     #Print out final info to file
 
     args[4] = save_output + ".txt"
@@ -374,7 +383,7 @@ def main():
 
     with open("ExtraInputs.txt", "w") as file:
         for arg in args:
-            file.write(f"{arg}")
+            file.write(f"{arg}\n")
 
     with open("output.txt", "w") as output_file_handle:
             extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
@@ -384,6 +393,9 @@ def main():
             continue
         else:
             break
+
+    os.remove("output.txt")
+    os.remove("ExtraInputs.txt")
 
     print("Extra info printed to file: " + save_output + "_info.txt")
 

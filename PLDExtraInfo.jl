@@ -15,7 +15,22 @@ function convertStringToArray(str)
 
     return result_array
 
+end 
+
+#Function to help beautify printed array-like objects. Shamelessly stolen from https://discourse.julialang.org/t/printing-an-array-without-element-type/6731
+function show_vector_sans_type(io, v::AbstractVector)
+	print(io, "[")
+	for (i, elt) in enumerate(v)
+			i > 1 && print(io, ", ")
+			if elt isa AbstractVector
+				show_vector_sans_type(io, elt)
+			else
+				print(io, elt)
+			end
+	end
+	print(io, "]")
 end
+show_vector_sans_type(v::AbstractVector) = show_vector_sans_type(stdout, v)
 
 # Expecting filepath to an input file
 
@@ -68,7 +83,7 @@ open(output_file, "a") do file
         write(file, "#################\n\n")
 
         write(file, "Euler Discriminant, χ: $(disc_eulers[i])\n")
-        write(file, "Weights: $(string(weight_list))\n")
+        write(file, "Weights: "); show_vector_sans_type(file, weight_list[i]); write(file, "\n");
         write(file, "Discriminant: $(string.(unique_discs[i]))\n\n\n")
     end
 end

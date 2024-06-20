@@ -17,6 +17,21 @@ function convertStringToArray(str)
 
 end
 
+#Function to help beautify printed array-like objects. Shamelessly stolen from https://discourse.julialang.org/t/printing-an-array-without-element-type/6731
+function show_vector_sans_type(io, v::AbstractVector)
+	print(io, "[")
+	for (i, elt) in enumerate(v)
+			i > 1 && print(io, ", ")
+			if elt isa AbstractVector
+				show_vector_sans_type(io, elt)
+			else
+				print(io, elt)
+			end
+	end
+	print(io, "]")
+end
+show_vector_sans_type(v::AbstractVector) = show_vector_sans_type(stdout, v)
+
 # Expecting filepath to an input file
 
 inputfile = ARGS[1];
@@ -72,10 +87,10 @@ if args[8] == "sym"
         write(file, string(diagramName, "\n\n"))
         write(file, "edges: $(edges)\n")
         write(file, "nodes: $(nodes)\n")
-        write(file, "internal_masses: $(string(internal_masses))\n")
-        write(file, "external_masses: $(string(external_masses))\n\n")
-        write(file, "schwinger parameters: $(string(vars))\n")  #Confusingly, pars are the variables and vars are the parameters!
-        write(file, "kinematic variables: $(string(pars))\n\n")
+        write(file, "internal_masses: "); show_vector_sans_type(file, internal_masses); write(file, "\n")
+        write(file, "external_masses: "); show_vector_sans_type(file, external_masses); write(file, "\n\n")
+        write(file, "schwinger parameters: "); show_vector_sans_type(file, vars); write(file, "\n")  #Confusingly, pars are the variables and vars are the parameters!
+        write(file, "kinematic variables: "); show_vector_sans_type(file, pars); write(file, "\n\n")
         write(file, "U: $(U)\n")
         write(file, "F: $(F)\n\n")
     end
