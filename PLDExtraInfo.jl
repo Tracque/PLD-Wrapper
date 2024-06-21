@@ -77,9 +77,9 @@ end
 open(output_file, "a") do file
     write(file, "Generic Euler Discriminant, χ∗: $(genericEuler)\n\n\n")
     
-    for i in 1:length(unique_discs)
+    for i in length(unique_discs):-1:1
         write(file, "#################\n")
-        write(file, "Discriminant $(i)\n")
+        write(file, "Discriminant $(length(unique_discs) - i + 1)\n")
         write(file, "#################\n\n")
 
         write(file, "Euler Discriminant, χ: $(disc_eulers[i])\n")

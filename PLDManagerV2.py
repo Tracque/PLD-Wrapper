@@ -7,7 +7,6 @@ import copy
 import glob
 
 #TODO: Implement GUI (keep a non-GUI version)
-#TODO: Separate script for cleanup (since PLD might not terminate)
 #TODO: Benchmark the wrapper. This had better be faster!
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, output_file="output.txt"):
@@ -348,7 +347,7 @@ def main():
             file.write(f"{arg}\n")
 
     #Find codims/faces
-    get_faces_path = "PLDGetFaces.jl"
+    get_faces_path = "PLD-WrapperGetFaces.jl"
     print("Extracting faces and codimensions")
     codim_array, face_array = get_faces_codims(get_faces_path, ["PLDinputs.txt"])
     print("Starting calculation of singularities")
