@@ -18,7 +18,7 @@ class interaction_API():
     def execute_PLD(dummy, edges, nodes, internal_masses, external_masses, save_output, codim_start=-1, face_start=1, single_face=False):
 
         # Specify the path to the main Julia script
-        julia_script_path = "PLDJobV2.jl"
+        julia_script_path = "PLDJob.jl"
 
         # Initial parameters
         codim_start = int(codim_start)
@@ -34,8 +34,14 @@ class interaction_API():
 
         #Find codims/faces
         get_faces_path = "PLDGetFaces.jl"
-        window.evaluate_js('appendToOutput("Extracting faces and codimensions")')
-        codim_array, face_array = get_faces_codims(get_faces_path, ["PLDinputs.txt"])
+
+        if single_face == False:
+            window.evaluate_js('appendToOutput("Extracting faces and codimensions")')
+            codim_array, face_array = get_faces_codims(get_faces_path, ["PLDinputs.txt"])
+        else:
+            codim_array = []
+            face_array = []
+
         window.evaluate_js(r'appendToOutput("Starting calculation of singularities\n")')
         
         run_julia_script(julia_script_path, ["PLDinputs.txt"], args, codim_array, face_array)
