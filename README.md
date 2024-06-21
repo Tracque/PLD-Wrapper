@@ -38,6 +38,20 @@ One issue you may encounter is with the package OSCAR failing to precompile. Thi
 
 Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to worry about downloading PLD separately, as it is included in this repo. (in fact, if you download it yourself, you WILL encounter errors, as OSCAR has undergone some slight syntax changes which required edits to PLD.jl)
 
+PLD-Wrapper v1.0.0 was last tested to be compatible with the current versions of the above packages on 21/06/2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
+
+```
+Status `~/.julia/environments/v1.10/Project.toml`
+⌅ [fb37089c] Arblib v0.8.1
+  [7d9fca2a] Arpack v0.5.4
+  [01680d73] GenericSVD v0.3.0
+  [f213a82b] HomotopyContinuation v2.9.3
+  [f1435218] Oscar v1.0.4
+  [37e2e46d] LinearAlgebra
+  [de0858da] Printf
+Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated`
+```
+
 Step 4: Make sure you have a working version of python3 installed, as well as the library psutil, which the wrapper uses to avoid frying your machine and (if you intend on using the GUI) pywebview. You can download these by running:
 
 ```
