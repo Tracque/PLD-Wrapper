@@ -355,11 +355,11 @@ def main():
     nodes =  [1,2,3,4] #formatted like [a,b,c,d,...] with a,b,c,d being integer labels for the vertices of the diagram
     internal_masses =  "[m1, m2, m3, m4]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
     external_masses =  "[p1, p2, p3, p4]" #note that all masses label the SQUARED masses
-    save_output = 'box' #give either a file path or a file name WITHOUT the file extension
+    save_output = 'box' #give either a file path or a file name (if you want to file to appear in this directory) WITHOUT the file extension
     codim_start = 1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
-    method = "sym" #"sym" or "num". If you know your starting face won't be doable for the symbolic method, setting this to "num" may save a little time, but likely not
-    single_face = False #Set this to True if you only want to find the discriminant associated with one face.
+    method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
+    single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
 
     args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face]
 

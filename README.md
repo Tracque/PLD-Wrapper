@@ -1,18 +1,13 @@
+
 # PLD-Wrapper.py
 
 A high-level wrapper, intended to make the package PLD.jl, more accessible and faster.
 
+This program comes with a number of scripts, 3 of which are intended for users to interact with/modify:
 
-There are 2 versions of this program available at this time, labelled V1 and V2 respectively.
-
-
-V1 is NOT recommended to use, however if your machine is struggling with V2 and you cannot get access to a machine that can support the parallel processes, it remains an option. At such a time as I release the first "stable" version of this program, V1 will become unavailable unless one searches for old commits to this repo.
-
-  
-
-V2 is the version I am currently recommending for use. It is, from my testing, fully functional and compiles all output into 2 files, for the user's convenience. V2 will soon be supported by a simple GUI, intended to give users some guidance as to the required format for their inputs and enable slightly more verbose output.
-
-When V2 is supported by the GUI, there will remain a version similar to its current form available for use in headless instances, which will hopefully make use of PLD-Wrapper for large calculations easier. (I assume such calculations will mostly be performed by SSH'ing into your institution's systems, so the GUI will just get in the way there)
+The main program, which should be the most intuitive (if at times a little clunky) to use, is PLD-Wrapper.py. 
+The GUI-less version of the program, intended to be more convenient for those who are confident with programming, or are running in a headless instance, is PLDManager.py.
+The script intended for use if the program does not terminate and you thus end execution early, is PLDCleanup.py.
 
 ## Installation Instructions
 
@@ -35,7 +30,7 @@ Step 3: Install the required libraries. This part should be simple. Start a Juli
 ```
 using Pkg; Pkg.activate()
 Pkg.add("Printf")
-Pkg.add(...)
+Pkg.add("LinearAlgebra")
 ...
 ```
 
@@ -43,19 +38,37 @@ One issue you may encounter is with the package OSCAR failing to precompile. Thi
 
 Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to worry about downloading PLD separately, as it is included in this repo. (in fact, if you download it yourself, you WILL encounter errors, as OSCAR has undergone some slight syntax changes which required edits to PLD.jl)
 
-Step 4: Make sure you have a working version of python3 installed, as well as the library psutil, which the wrapper uses to avoid frying your machine. You can download psutil by running:
+Step 4: Make sure you have a working version of python3 installed, as well as the library psutil, which the wrapper uses to avoid frying your machine and (if you intend on using the GUI) pywebview. You can download these by running:
 
 ```
 pip install psutil
+pip install webview
 ```
 
 Or, 
 
 ```
 sudo apt-get install python3-psutil
+sudo apt-get install python3-webview
 ```
 
 ------
+
+Note: pywebview, by default, will attempt to open the GUI window using GTK. The program will still run successfully even without GTK installed. If you attempt to run PLD-Wrapper.py without GTK, you will see error messages as follows:
+
+```
+[pywebview] GTK cannot be loaded
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/webview/guilib.py", line 16, in import_gtk
+    import webview.platforms.gtk as guilib
+  File "/usr/lib/python3/dist-packages/webview/platforms/gtk.py", line 26, in <module>
+    gi.require_version('Gtk', '3.0')
+  File "/usr/lib/python3/dist-packages/gi/__init__.py", line 126, in require_version
+    raise ValueError('Namespace %s not available' % namespace)
+ValueError: Namespace Gtk not available
+QStandardPaths: wrong permissions on runtime directory /run/user/1000/, 0755 instead of 0700
+```
+Despite the errors, the program will still run and give the correct output. If, however, it bothers you to have such errors occuring, you can find the installation instructions [here.](https://www.gtk.org/docs/installations/index)
 
 And with that, you should be up and running! Simply navigate to the directory where you installed PLD-Wrapper and run the command:
 
@@ -65,11 +78,21 @@ python3 PLD-Wrapper.py
 
 ## Usage Instructions
 
-Currently, you must manually edit the variables in the PLDManager file and then run it in your console. You should not have to touch the Julia files.
+PLD-Wrapper.py will open a local webpage which provides input fields and instructions for PLD. It also can produce visualisations of your inputs, to hopefully help you check that you are inputting what you think you are. Note that the visualisations are NOT supposed to be literature ready diagrams.
 
-Once the GUI integration has been completed, if you run the version with the GUI, you will need to give your inputs in the input fields provided.
+If you wish to use PLDManager.py, you will have to adjust the inputs by directly modifying the main() function. 
 
-Note: PLD-Wrapper.py limits its use of system resources, in an attempt not to fry your machine. If you are running PLD-Wrapper in a subsystem, or a VM, it will similarly attempt not to use all of the subsystem/VM resources. Make sure you account for this when allocating resources to such a subsystem or VM.
+PLDCleanup.py exists simply to account for situations where PLD-Wrapper.py or PLDManager.py are stopped prematurely. In this case, you should again directly modify the main() function to give the correct inputs. Running PLDCleanup.py should then compile and sort the output files for you.
+
+At no point when using these programs should you have to touch the Julia files.
+
+Note: PLD-Wrapper.py and PLDManager.py limit the use of system resources, in an attempt not to fry your machine. If you are running them in a subsystem, or a VM, it will similarly attempt not to use all of the subsystem/VM resources. Make sure you account for this when allocating resources to such a subsystem or VM.
+
+## Known Issues
+
+The formatting of output gets messed up if you run the cleanup script multiple times on the same files. (although I am tempted to say there should virtually never be any reason to do such a thing)
+
+Not necessarily an issue, but I have currently only implemented cpu usage restrictions, as PLD.jl seems to be more cpu intensive than memory intensive. If your usage of the program indicates otherwise, let me know.
 
 ## Acknowledgements
 
@@ -78,3 +101,9 @@ I am grateful to my father (who wished not to be named) for many helpful discuss
 I also thank the authors of PLD.jl for their support in this endeavour.
 
 This program was written to complement a summer project supervised by Einan Gardi and funded by the University of Edinburgh School of Physics and Astronomy's Summer Vacation Scholarship.
+
+## Contact
+
+This repo is being maintained by Tristan Jacquel (Github: [Tracque](https://github.com/Tracque)). If you would like to raise an issue with the program, feel free to do so here on Github, but you are more likely to get a timely response if you contact me via email: s2146323@ed.ac.uk (or t.y.jacquel@sms.ed.ac.uk which also goes to me)
+
+If, for some reason, you cannot reach me through email or on Github, then perhaps try my personal email: tristan@jacquel.net

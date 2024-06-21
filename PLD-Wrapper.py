@@ -551,6 +551,7 @@ if __name__ == "__main__":
                     <p style="line-height: 1.2">
                         Note: The provided visualisation is algorithmically generated and is not supposed to produce literature ready diagrams.<br>
                         Hopefully, it will at least give you an idea of if you are inputting what you think you are.
+                        The solid lines are massive, the dashed ones massless.
                     </p>
                 
                     <br>
@@ -569,7 +570,7 @@ if __name__ == "__main__":
                     </div>
 
                     <br><br><br><br>
-                    Below, input the desired output file name or path and name for the calculation.<br>
+                    Below, input the desired output file name or path and name for the calculation. (DO NOT INCLUDE A FILE EXTENSION. THIS WILL BE DONE FOR YOU)<br>
                     File Path <input type="text" id="filePath"> <br>
                     <button id="startButton">Start Calculation</button>
                 </div>
