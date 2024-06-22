@@ -234,8 +234,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80:
-                        #and psutil.virtual_memory().percent < 80
+                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
