@@ -3,7 +3,7 @@ import os
 import glob
 import subprocess
 
-def cleanup_diagram_data(diagram_name):
+def cleanup_diagram_data(diagram_names):
 
     input_files = glob.glob("PLDinputs*.txt")
     
@@ -13,30 +13,38 @@ def cleanup_diagram_data(diagram_name):
     all_output = []
 
     #First open the main (symbolic) output file
-    with open(diagram_name + ".txt", "r") as file:
+    for diagram_name in diagram_names:
+        with open(diagram_name + ".txt", "r") as file:
 
-        lines = file.readlines()
+            lines = file.readlines()
 
-        for line in lines:
-            match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
-            codim = match.group(1)
-            face = match.group(2)
-            all_output.append(["(sym) " + line, codim, face])
-
-    num_files = glob.glob(diagram_name + "_num_*.txt")
-
-    for file in num_files:
-
-        with open(file, "r") as f:
-
-            line = f.readlines()[0]
-
-            match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
-
-            if match != None:
+            for line in lines:
+                match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
                 codim = match.group(1)
                 face = match.group(2)
-                all_output.append(["(num) " + line, codim, face])
+
+                #Don't falsely relabel an already labeled line
+                if line[0] == "(":
+                    all_output.append([line, codim, face])
+                else:
+                    all_output.append(["(sym) " + line, codim, face])
+
+        num_files = glob.glob(diagram_name + "_num_*.txt")
+
+        for file in num_files:
+
+            with open(file, "r") as f:
+
+                line = f.readlines()[0]
+
+                match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
+
+                if match != None:
+                    codim = match.group(1)
+                    face = match.group(2)
+
+                    #No need to worry about false relabelling since num files are never sorted
+                    all_output.append(["(num) " + line, codim, face])
 
     sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]))
 
@@ -63,13 +71,16 @@ if __name__ == "__main__":
     nodes =  [1,2,3,4] 
     internal_masses =  "[m1, m2, m3, m4]"
     external_masses =  "[p1, p2, p3, p4]"
-    save_output = 'box'
+
+    #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
+    output_file_names = ["box", "box-2"] 
+    save_output = output_file_names[0]
 
     args = [edges, nodes, internal_masses, external_masses, save_output + ".txt", save_output + "_info.txt"]
 
     print("Manually compiling output...")
 
-    lines = cleanup_diagram_data(save_output)
+    lines = cleanup_diagram_data(output_file_names)
 
     with open(save_output + ".txt", "w") as file:
         for line in lines:
