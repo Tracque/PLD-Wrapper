@@ -106,8 +106,6 @@ Note: PLD-Wrapper.py and PLDManager.py limit the use of system resources, in an 
 
 The formatting of output gets messed up if you run the cleanup script multiple times on the same files. (although I am tempted to say there should virtually never be any reason to do such a thing)
 
-Not necessarily an issue, but I have currently only implemented cpu usage restrictions, as PLD.jl seems to be more cpu intensive than memory intensive. If your usage of the program indicates otherwise, let me know.
-
 ## Acknowledgements
 
 I am grateful to my father (who wished not to be named) for many helpful discussions regarding this program. In particular, the central idea for this wrapper, to monitor the output of PLD.jl to automate it and avoid stalling, was his.
