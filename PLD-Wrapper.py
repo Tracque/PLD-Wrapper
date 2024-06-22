@@ -247,8 +247,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
-                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                            num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+                        num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
 
                         num_queue.pop(0)
 
@@ -282,7 +281,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                 for i in range(len(num_processes)):
                     os.remove("PLDinputs" + str(i+1) + ".txt")
-                    os.remove("numOutput" + str(i+1) + ".txt") #Clean up output files
+                    #Clean up output files
 
                 break
 

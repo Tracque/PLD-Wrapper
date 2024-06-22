@@ -5,11 +5,7 @@ import subprocess
 
 def cleanup_diagram_data(diagram_name):
 
-    num_output_files = glob.glob("numOutput*.txt")
     input_files = glob.glob("PLDinputs*.txt")
-
-    for file in num_output_files:
-        os.remove(file)
     
     for file in input_files:
         os.remove(file)

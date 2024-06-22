@@ -166,8 +166,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
-                        with open("numOutput" + str(len(num_processes)+1) + ".txt", "w") as output_file_handle:
-                            num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=output_file_handle, stderr=subprocess.PIPE, text=True))
+                        num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
 
                         num_queue.pop(0)
 
@@ -201,7 +200,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                 for i in range(len(num_processes)):
                     os.remove("PLDinputs" + str(i+1) + ".txt")
-                    os.remove("numOutput" + str(i+1) + ".txt") #Clean up output files
+                    #Clean up output files
 
                 break
 
@@ -351,12 +350,12 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1,2],[2,3],[3,4],[4,1]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram
-    nodes =  [1,2,3,4] #formatted like [a,b,c,d,...] with a,b,c,d being integer labels for the vertices of the diagram
-    internal_masses =  "[m1, m2, m3, m4]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[p1, p2, p3, p4]" #note that all masses label the SQUARED masses
-    save_output = 'box' #give either a file path or a file name (if you want to file to appear in this directory) WITHOUT the file extension
-    codim_start = 1 #integer. Make this <0 if you want to do everything
+    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram
+    nodes =  [1, 2, 3, 4, 5] #formatted like [a,b,c,d,...] with a,b,c,d being integer labels for the vertices of the diagram
+    internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    external_masses =  "[0, 0, 0, 0, M2]" #note that all masses label the SQUARED masses
+    save_output = 'Hj-npl-pentb' #give either a file path or a file name (if you want to file to appear in this directory) WITHOUT the file extension
+    codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
