@@ -20,8 +20,8 @@ def cleanup_diagram_data(diagram_names):
 
             for line in lines:
                 match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
-                codim = match.group(1)
-                face = match.group(2)
+                codim = int(match.group(1))
+                face = int(match.group(2))
 
                 #Don't falsely relabel an already labeled line
                 if line[0] == "(":
@@ -40,19 +40,19 @@ def cleanup_diagram_data(diagram_names):
                 match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
 
                 if match != None:
-                    codim = match.group(1)
-                    face = match.group(2)
+                    codim = int(match.group(1))
+                    face = int(match.group(2))
 
                     #No need to worry about false relabelling since num files are never sorted
                     all_output.append(["(num) " + line, codim, face])
 
-    sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]))
+        #We have extracted all the output now, so can clean up the output files
+        os.remove(diagram_name + ".txt")
 
-    #We have extracted all the output now, so can clean up the output files
-    os.remove(diagram_name + ".txt")
+        for file in num_files:
+            os.remove(file)
 
-    for file in num_files:
-        os.remove(file)
+    sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]), reverse=True)
 
     final_output =  [output[0] for output in sorted_output]
 
@@ -67,13 +67,13 @@ def convert_string_to_array(string):
 if __name__ == "__main__":
 
     # Initial parameters
-    edges =  [[1,2],[2,3],[3,4],[4,1]]
-    nodes =  [1,2,3,4] 
-    internal_masses =  "[m1, m2, m3, m4]"
-    external_masses =  "[p1, p2, p3, p4]"
+    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] 
+    nodes =  [1,2,3,4,5] 
+    internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" 
+    external_masses =  "[0, 0, 0, 0, M2]"
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ["box", "box-2"] 
+    output_file_names = ['Hj-npl-pentb', 'Hj-npl-pentb-extra'] 
     save_output = output_file_names[0]
 
     args = [edges, nodes, internal_masses, external_masses, save_output + ".txt", save_output + "_info.txt"]

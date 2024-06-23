@@ -388,8 +388,8 @@ def compile_diagram_data(diagram_name):
 
             for line in lines:
                 match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
-                codim = match.group(1)
-                face = match.group(2)
+                codim = int(match.group(1))
+                face = int(match.group(2))
                 all_output.append(["(sym) " + line, codim, face])
 
         #We have extracted all the output now, so can clean up the output files
@@ -406,8 +406,8 @@ def compile_diagram_data(diagram_name):
             match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
 
             if match != None:
-                codim = match.group(1)
-                face = match.group(2)
+                codim = int(match.group(1))
+                face = int(match.group(2))
                 all_output.append(["(num) " + line, codim, face])
 
     sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]), reverse=True)
