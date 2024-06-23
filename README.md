@@ -38,7 +38,7 @@ One issue you may encounter is with the package OSCAR failing to precompile. Thi
 
 Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to worry about downloading PLD separately, as it is included in this repo. (in fact, if you download it yourself, you WILL encounter errors, as OSCAR has undergone some slight syntax changes which required edits to PLD.jl)
 
-PLD-Wrapper v1.0.2 was last tested to be compatible with the current versions of the above packages on 22/06/2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
+PLD-Wrapper v1.0.3 was last tested to be compatible with the current versions of the above packages on 23/06/2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
 
 ```
 Status `~/.julia/environments/v1.10/Project.toml`
@@ -104,7 +104,7 @@ Note: PLD-Wrapper.py and PLDManager.py limit the use of system resources, in an 
 
 ## Known Issues
 
-The formatting of output gets messed up if you run the cleanup script multiple times on the same files. (although I am tempted to say there should virtually never be any reason to do such a thing)
+None at the moment...
 
 ## Acknowledgements
 
