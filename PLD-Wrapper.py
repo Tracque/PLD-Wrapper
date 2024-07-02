@@ -7,9 +7,6 @@ import copy
 import glob
 import webview
 
-#TODO: Implement GUI (keep a non-GUI version)
-#TODO: Benchmark the wrapper. This had better be faster!
-
 class interaction_API():
     def __init__(self):
         self.stop = False
@@ -234,7 +231,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
+                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
@@ -251,6 +248,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                         num_queue.pop(0)
 
                         last_num_start_time = time.time()
+
+                        for task in num_processes:
+                            if task.poll() != None:
+                                stdout, stderr = task.communicate() #This should clean up output pipelines
                             
 
                 # Check the last modification time of the output file
@@ -536,6 +537,7 @@ if __name__ == "__main__":
                         Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br>
                         I have tried to allow for many possible variable labels for the squared masses, including p, P, m, M, q, Q, l and L. (as in m1, m2, m3,... or similar) <br>
                         You should ensure you align the edges/internal masses and the nodes/external masses. For example, this means if your edges are input as [[1,2],...], then the internal mass array [m1,...] will set the mass of the [1,2] edge to m1.
+                        NB: edges should by input as [[i,j],...] with i <= j.
                     </p>
                     <br>
                     <div style="text-align: center;">
@@ -767,6 +769,8 @@ if __name__ == "__main__":
     </html>
 
     """
+
+    num_delay = 60
 
     api = interaction_API()
     window = webview.create_window("PLD GUI", html = html_content, js_api = api)

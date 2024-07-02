@@ -153,7 +153,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > 60 and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
+                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
@@ -170,7 +170,11 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                         num_queue.pop(0)
 
                         last_num_start_time = time.time()
-                            
+
+                        for task in num_processes:
+                            if task.poll() != None:
+                                stdout, stderr = task.communicate() #This should clean up output pipelines
+                                        
 
                 # Check the last modification time of the output file
                 if symTasksDone == False:
@@ -251,7 +255,7 @@ def read_codim_face_from_file(file_path):
                 face = int(match.group(2)) + 1
 
                 if codim == 0:
-                    return None, None, None
+                    return None, None
 
                 if int(match.group(2)) == int(match.group(3)):
                     codim -= 1
@@ -349,13 +353,14 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram
+    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4, 5] #formatted like [a,b,c,d,...] with a,b,c,d being integer labels for the vertices of the diagram
     internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[0, 0, 0, 0, M2]" #note that all masses label the SQUARED masses
-    save_output = 'Hj-npl-pentb-extra' #give either a file path or a file name (if you want to file to appear in this directory) WITHOUT the file extension
-    codim_start = 4 #integer. Make this <0 if you want to do everything
-    face_start = 73 #integer. Make this 1 if you want to do everything in and past the starting codim
+    external_masses =  "[0, 0, 0, 0, p2]" #note that all masses label the SQUARED masses
+    save_output = 'Hj-npl-pentb' #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    codim_start = -1 #integer. Make this <0 if you want to do everything
+    face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
 
@@ -422,4 +427,7 @@ def main():
     print("Extra info printed to file: " + save_output + "_info.txt")
 
 if __name__ == "__main__":
+
+    num_delay = 60
+
     main()

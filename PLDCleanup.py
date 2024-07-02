@@ -73,7 +73,7 @@ if __name__ == "__main__":
     external_masses =  "[0, 0, 0, 0, M2]"
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ['Hj-npl-pentb', 'Hj-npl-pentb-extra'] 
+    output_file_names = ['Hj-npl-pentb'] 
     save_output = output_file_names[0]
 
     args = [edges, nodes, internal_masses, external_masses, save_output + ".txt", save_output + "_info.txt"]

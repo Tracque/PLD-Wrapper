@@ -104,7 +104,7 @@ Note: PLD-Wrapper.py and PLDManager.py limit the use of system resources, in an 
 
 ## Known Issues
 
-None at the moment...
+The current delay between starting numeric processes in parallel is insufficient to properly protect system resources for difficult diagrams, but increasing it would cause large slowdowns. I am temtpted to recommend that users adjust said timeout themselves. (the timeout is currently set at 60 seconds and can be modified in the main functions of PLDManager.py or PLD-Wrapper.py)
 
 ## Acknowledgements
 
