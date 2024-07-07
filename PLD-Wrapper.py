@@ -12,7 +12,7 @@ class interaction_API():
         self.stop = False
 
     #dummy arg here because the api interaction seems to insist on passing an extra garbage (as far as our purposes) argument 
-    def execute_PLD(dummy, edges, nodes, internal_masses, external_masses, save_output, codim_start=-1, face_start=1, single_face=False):
+    def execute_PLD(dummy, edges, nodes, internal_masses, external_masses, save_output, codim_start=-1, face_start=1, single_face=False, subRules = []):
 
         # Specify the path to the main Julia script
         julia_script_path = "PLDJob.jl"
@@ -22,7 +22,7 @@ class interaction_API():
         face_start = int(face_start)
         method = "sym"
 
-        args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face]
+        args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subRules]
 
         #write arguments to file
         with open("PLDinputs.txt", 'w') as file: 
@@ -411,7 +411,7 @@ def compile_diagram_data(diagram_name):
                 face = int(match.group(2))
                 all_output.append(["(num) " + line, codim, face])
 
-    sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]), reverse=True)
+    sorted_output = sorted(all_output, key=lambda o: (o[1], -o[2]), reverse=True)
 
     for file in num_files:
         os.remove(file)
@@ -572,6 +572,11 @@ if __name__ == "__main__":
                     <br><br><br><br>
                     Below, input the desired output file name or path and name for the calculation. (DO NOT INCLUDE A FILE EXTENSION. THIS WILL BE DONE FOR YOU)<br>
                     File Path <input type="text" id="filePath"> <br>
+
+                    <br>
+                    Finally, input any custom substitutions below. (e.g. specific parameterizations/limits)
+                    Sub Rules <input type="text" id="subRules" placeholder="e.g. [s23 => 0]"> <br>
+
                     <button id="startButton">Start Calculation</button>
                 </div>
 
@@ -598,13 +603,14 @@ if __name__ == "__main__":
                 var outputFilePath = document.getElementById("filePath").value;
                 var startCodim = document.getElementById("startC").value;
                 var startFace = document.getElementById("startF").value;
+                var subRules = document.getElementById("subRules").value;
 
                 if (startCodim == "" || startFace == "") {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, subRules=subRules);
                 } else if(document.getElementById("startCheckbox").checked == true) {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, true);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, true, subRules);
                 } else {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, false);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, false, subRules);
                 }
 
                 // Show that we have started successfully

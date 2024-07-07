@@ -822,7 +822,9 @@ function getUF(edges, nodes; internal_masses = :zero, external_masses = :zero, s
     end
 
     if !isempty(substitute)
-        Fsubs = subs(Fsubs, substitute)
+        for subrule in substitute
+            Fsubs = subs(Fsubs, subrule)
+        end
     end
 
     Fsubs = HomotopyContinuation.ModelKit.expand(Fsubs)
@@ -901,15 +903,17 @@ end
 # homogeneous           use homogeneous ansatz for polynomial reconstruction, default = true
 # save_output           save output to a file, default = ""
 # load_output           load output from a previous run instead of computing discriminants, default = ""
+# substitutions         extra substitutions for the external kinematics (use this to study certain kinematic limits)
 # -------------  Output:
 # discriminants         a list of discriminants in Oscar format. The principal Landau determinant is the product of all these discriminants
 # pars_oscar            a list of kinematic variables in Oscar format: Mandelstam invariants set internally and the possible masses provided by the user
 # vars_oscar            a list of Schwinger parameters in Oscar format
 # U_oscar               the first Symanzik polynomial in Oscar format
 # F_oscar               the second Symanzik polynomial in Oscar format
-function getPLD(edges, nodes; internal_masses = :zero, external_masses = :zero, method = :sym, high_prec = false, codim_start = -1, face_start = 1, single_weight = nothing, single_face = false, verbose = false, homogeneous = true, save_output = "", load_output = "")
+function getPLD(edges, nodes; internal_masses = :zero, external_masses = :zero, method = :sym, high_prec = false, codim_start = -1, face_start = 1, single_weight = nothing, single_face = false, verbose = false, homogeneous = true, save_output = "", load_output = "", substitutions = [])
 
-    U_oscar, F_oscar, pars_oscar, vars_oscar = getUF(edges, nodes; internal_masses = internal_masses, external_masses = external_masses)
+    U_oscar, F_oscar, pars_oscar, vars_oscar = getUF(edges, nodes; internal_masses = internal_masses, external_masses = external_masses, substitute = substitutions)
+
 
     if load_output == ""
         discriminants = getSpecializedPAD(U_oscar + F_oscar, pars_oscar, vars_oscar; method = method, high_prec = high_prec, codim_start = codim_start, face_start = face_start, single_face = single_face, single_weight = single_weight, verbose = verbose, homogeneous = homogeneous, save_output = save_output)

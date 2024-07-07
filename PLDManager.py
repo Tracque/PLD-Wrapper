@@ -153,7 +153,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
+                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 70:
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
@@ -294,7 +294,7 @@ def get_faces_codims(script_path, input_file_path):
                 else:
 
                     codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
-                    os.remove("output.txt")  # Clean up the output file
+                    #os.remove("output.txt")  # Clean up the output file
 
                     return convert_string_to_array(codim_string), convert_string_to_array(face_string)
                 
@@ -332,7 +332,7 @@ def compile_diagram_data(diagram_name):
                 face = int(match.group(2))
                 all_output.append(["(num) " + line, codim, face])
 
-    sorted_output = sorted(all_output, key=lambda o: (o[1], o[2]), reverse=True)
+    sorted_output = sorted(all_output, key=lambda o: (o[1], -o[2]), reverse=True)
 
     for file in num_files:
         os.remove(file)
@@ -353,18 +353,23 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1,7], [1,6], [2,7], [2,3], [3,6], [4,5], [4,6], [5,7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3, 4, 5] #formatted like [a,b,c,d,...] with a,b,c,d being integer labels for the vertices of the diagram
-    internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[0, 0, 0, 0, p2]" #note that all masses label the SQUARED masses
-    save_output = 'Hj-npl-pentb' #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
+    save_output = 'dpent-s23-0-lim' #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
 
-    args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face]
+    subs = "[s23 => 0]" #Set this to "[]" if you do not need to make any specific substitutions
+
+    if subs != "[]":
+        args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subs]
+    else:
+        args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subs]
 
     #write arguments to file
     with open("PLDinputs.txt", 'w') as file: 

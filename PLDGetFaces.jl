@@ -17,6 +17,40 @@ function convertStringToArray(str)
 
 end
 
+function isolateElements(str)
+
+    stripped_array = strip(str, ['[',']'])
+
+    elems = split(stripped_array, ',')
+
+    return strip.(elems)
+
+end
+
+function isolateSubSymbols(str)
+
+    stripped_array = strip(str, ['[',']'])
+
+    subrules = split(stripped_array, ',')
+
+    allsymbols = []
+
+    for i in 1:length(subrules)
+
+        syms = split(subrules[i], "=>")
+
+        leftsym = split.(syms[1])
+        rightsym = split.(syms[2])
+
+        push!(allsymbols, strip.(leftsym[1]))
+        push!(allsymbols, strip.(rightsym[1]))
+
+    end
+
+    return allsymbols
+
+end
+
 # Expecting filepath to an input file
 
 inputfile = ARGS[1];
@@ -32,20 +66,32 @@ end
 edges = convertStringToArray(args[1]);
 nodes = convertStringToArray(args[2]);
 
-#Here, we create the symbolic variables for the masses
-allowed_chars = ["m","M","q","Q","l","L","p","P"]
+#Create symbol variables for masses/kinematics
+symbols_to_define = isolateElements(args[3])
+symbols_to_define = vcat(symbols_to_define, isolateElements(args[4]))
 
-for i in 1:length(allowed_chars)
-    for j in 1:length(edges)
-        var_name = Symbol(allowed_chars[i], j)
-        @eval HomotopyContinuation.ModelKit.@var $var_name
+if length(args) == 10
+    symbols_to_define = vcat(symbols_to_define, isolateSubSymbols(args[10]))
+end
+
+for var_name in symbols_to_define
+    if isnothing(tryparse(Int, string(var_name)))
+        variable = Symbol(string(var_name))
+        @eval HomotopyContinuation.ModelKit.@var $variable
     end
 end
 
-internal_masses = convertStringToArray(args[3]);
-external_masses = convertStringToArray(args[4]);
-codim_start = parse(Int, args[6]);
-face_start = parse(Int, args[7]);
+internal_masses = convertStringToArray(args[3])
+external_masses = convertStringToArray(args[4])
+diagramName = args[5]
+
+codim_start = parse(Int, args[6])
+face_start = parse(Int, args[7])
+if length(args) == 10
+    subRules = convertStringToArray(args[10])
+else
+    subRules = []
+end
 
 println("edges: $edges")
 println("nodes: $nodes")
@@ -59,7 +105,7 @@ flush(stdout)
 codim_array = []
 face_array = []
 
-U_oscar, F_oscar, pars_oscar, vars_oscar = getUF(edges, nodes; internal_masses = internal_masses, external_masses = external_masses)
+U_oscar, F_oscar, pars_oscar, vars_oscar = getUF(edges, nodes; internal_masses = internal_masses, external_masses = external_masses, substitute = subRules)
 
 f = U_oscar + F_oscar
 
