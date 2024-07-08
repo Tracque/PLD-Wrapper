@@ -17,6 +17,12 @@ class interaction_API():
         # Specify the path to the main Julia script
         julia_script_path = "PLDJob.jl"
 
+        #output directory
+        output_dir = "output/"
+        if "/" not in save_output:
+            save_output = output_dir + save_output
+
+
         # Initial parameters
         codim_start = int(codim_start)
         face_start = int(face_start)
@@ -25,7 +31,7 @@ class interaction_API():
         args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subRules]
 
         #write arguments to file
-        with open("PLDinputs.txt", 'w') as file: 
+        with open(output_dir + "PLDinputs.txt", 'w') as file: 
             for arg in args:
                 file.write(f"{arg}\n")
 
@@ -34,14 +40,14 @@ class interaction_API():
 
         if single_face == False:
             window.evaluate_js('appendToOutput("Extracting faces and codimensions")')
-            codim_array, face_array = get_faces_codims(get_faces_path, ["PLDinputs.txt"])
+            codim_array, face_array = get_faces_codims(get_faces_path, [output_dir + "PLDinputs.txt"])
         else:
             codim_array = []
             face_array = []
 
         window.evaluate_js(r'appendToOutput("Starting calculation of singularities\n")')
         
-        run_julia_script(julia_script_path, ["PLDinputs.txt"], args, codim_array, face_array)
+        run_julia_script(julia_script_path, [output_dir + "PLDinputs.txt"], args, codim_array, face_array, output_dir=output_dir)
 
         window.evaluate_js('appendToOutput("Sucessfully executed PLD.jl for the provided diagram(s)")')
 
@@ -66,11 +72,11 @@ class interaction_API():
         args[4] = save_output + ".txt"
         args[5] = save_output + "_info.txt"
 
-        with open("ExtraInputs.txt", "w") as file:
+        with open(output_dir + "ExtraInputs.txt", "w") as file:
             for arg in args:
                 file.write(f"{arg}\n")
 
-        with open("output.txt", "w") as output_file_handle:
+        with open(output_dir + "output.txt", "w") as output_file_handle:
                 extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
 
         while True:
@@ -79,14 +85,14 @@ class interaction_API():
             else:
                 break
 
-        os.remove("output.txt")
-        os.remove("ExtraInputs.txt")
+        os.remove(output_dir + "output.txt")
+        os.remove(output_dir + "ExtraInputs.txt")
 
         window.evaluate_js(f'appendToOutput("Extra info printed to file: {save_output}_info.txt")')
 
         return 0
 
-def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, output_file="output.txt"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay=60, output_file="output/output.txt", output_dir="output/"):
 
     num_processes = []
     num_queue = []
@@ -97,7 +103,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
     codim_start = args[5]
 
     #write arguments to file
-    with open("PLDinputs.txt", 'w') as file: 
+    with open(output_dir + "PLDinputs.txt", 'w') as file: 
         for arg in args:
             file.write(f"{arg}\n")
 
@@ -219,7 +225,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                         args[6] = face_start
                         args[7] = "sym"
 
-                        with open("PLDinputs.txt", 'w') as file: 
+                        with open(output_dir + "PLDinputs.txt", 'w') as file: 
                             for arg in args:
                                 file.write(f"{arg}\n")
 
@@ -234,7 +240,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                     if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 80:
 
                         #Adjust the inputs to avoid race conditions
-                        num_inputs = "PLDinputs" + str(len(num_processes) + 1) + ".txt"
+                        num_inputs = output_dir + "PLDinputs" + str(len(num_processes) + 1) + ".txt"
                         num_queue[0][4] = save_output + "_num_" + str(len(num_processes) + 1)
                         num_queue[0][7] = "num"
 
@@ -277,10 +283,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, ou
                     
             if symTasksDone and numTasksDone:
 
-                os.remove("PLDinputs.txt")
+                os.remove(output_dir + "PLDinputs.txt")
 
                 for i in range(len(num_processes)):
-                    os.remove("PLDinputs" + str(i+1) + ".txt")
+                    os.remove(output_dir + "PLDinputs" + str(i+1) + ".txt")
                     #Clean up output files
 
                 break
@@ -775,8 +781,6 @@ if __name__ == "__main__":
     </html>
 
     """
-
-    num_delay = 60
 
     api = interaction_API()
     window = webview.create_window("PLD GUI", html = html_content, js_api = api)
