@@ -1083,19 +1083,17 @@ end
 # -------------  Output:
 # unique_discs          list of unique discriminants
 # weight_list           list of weights for each unique discriminant
-function discriminants_with_weights(f, discs; codim_start = nothing, face_start = nothing, skip_1 = true, verbose = true)
+function discriminants_with_weights(f, discs; faces_done = [], skip_1 = true, verbose = true)
 
     all_wghts = getWeights(f)
 
-    if isnothing(codim_start) || isnothing(face_start)
+    if isempty(faces_done)
         wghts = vcat(reverse(all_wghts)...)
     else
-        wghts = [all_wghts[codim_start+1][face_start:end]]
-        for codim in codim_start:-1:1
-            push!(wghts, all_wghts[codim])
+        wghts = []
+        for i in 1:length(faces_done)
+            push!(wghts, all_wghts[faces_done[i][1]+1][faces_done[i][2]])
         end
-
-        wghts = vcat(wghts...)
     end
 
 

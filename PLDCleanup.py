@@ -81,11 +81,11 @@ if __name__ == "__main__":
     face_start = 1
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ['output/nonplanarbox-7props-s-eq-0-lim'] 
+    output_file_names = ['output/test'] 
     save_output = output_file_names[0]
     output_dir = "output/"
 
-    subs = "[s => 0]" #Set this to "[]" if you do not need to make any specific substitutions
+    subs = "[t => 0]" #Set this to "[]" if you do not need to make any specific substitutions
 
     if subs == "[]":
         args = [edges, nodes, internal_masses, external_masses, "a", codim_start, face_start, save_output + ".txt", save_output + "_info.txt"]
@@ -120,8 +120,15 @@ if __name__ == "__main__":
         else:
             break
 
-    os.remove(output_dir + "output.txt")
-    os.remove(output_dir + "ExtraInputs.txt")
+    if extra_info_process.poll() == 0:
+        os.remove(output_dir + "output.txt")
+        os.remove(output_dir + "ExtraInputs.txt")
+
+        print("Extra info printed to file: " + save_output + "_info.txt")
+    else:
+        os.remove(output_dir + "output.txt")
+        print("An error occured when trying to create the extra output.")
+        print("If you want to retry, you can run the command 'julia PLDExtraInfo.jl " + output_dir + "ExtraInputs.txt'.")
 
     print("Extra info printed to file: " + save_output + "_info.txt")
 

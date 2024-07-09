@@ -89,10 +89,17 @@ class interaction_API():
             else:
                 break
 
-        os.remove(output_dir + "output.txt")
-        os.remove(output_dir + "ExtraInputs.txt")
+        if extra_info_process.poll() == 0:
+            os.remove(output_dir + "output.txt")
+            os.remove(output_dir + "ExtraInputs.txt")
 
-        window.evaluate_js(f'appendToOutput("Extra info printed to file: {save_output}_info.txt")')
+            window.evaluate_js(f'appendToOutput("Extra info printed to file: {save_output}_info.txt")')
+        else:
+            os.remove(output_dir + "output.txt")
+            window.evaluate_js('appendToOutput("An error occured when trying to create the extra output.")')
+            window.evaluate_js(f'appendToOutput("If you want to retry, you can run the command: julia PLDExtraInfo.jl {output_dir}ExtraInputs.txt")')
+
+        
 
         return 0
 

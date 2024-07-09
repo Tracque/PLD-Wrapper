@@ -9,8 +9,13 @@ The main program, which should be the most intuitive (if at times a little clunk
 The GUI-less version of the program, intended to be more convenient for those who are confident with programming, or are running in a headless instance, is PLDManager.py.
 The script intended for use if the program does not terminate and you thus end execution early, is PLDCleanup.py.
 
-## Installation Instructions
+## System requirements
 
+The program has not yet been tested on many systems, so the minimum specs are unknown. The recommendation is that your system can comfortably run PLD.jl, with at least 2/3 of the system resources unoccupied.
+
+The main bottleneck for this program is the amount of RAM that is available. For reference, on a system with a 24 core Intel® Core™ i9-7920X CPU and 32 GiB, my experience is that the CPU usage has never climbed much higher than 50%, whilst the RAM usage can often reach 100% for challenging diagrams if one removes the limits on the program.
+
+## Installation Instructions
   
 In order to use this program you must have Julia installed, as well as the Arpack, Arblib, LinearAlgebra, Printf, GenericSVD, Oscar and HomotopyContinuation packages. If you have any problems, you should consult the official installation instructions for these packages. However, here's the quick rundown:
 
@@ -38,14 +43,14 @@ One issue you may encounter is with the package OSCAR failing to precompile. Thi
 
 Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to worry about downloading PLD separately, as it is included in this repo. (in fact, if you download it yourself, you WILL encounter errors, as OSCAR has undergone some slight syntax changes which required edits to PLD.jl)
 
-PLD-Wrapper v1.0.3 was last tested to be compatible with the current versions of the above packages on 23/06/2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
+PLD-Wrapper v1.1.0 was last tested to be compatible with the current versions of the above packages on the 9th of July 2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
 
 ```
 Status `~/.julia/environments/v1.10/Project.toml`
 ⌅ [fb37089c] Arblib v0.8.1
   [7d9fca2a] Arpack v0.5.4
   [01680d73] GenericSVD v0.3.0
-  [f213a82b] HomotopyContinuation v2.9.3
+  [f213a82b] HomotopyContinuation v2.9.4
   [f1435218] Oscar v1.0.4
   [37e2e46d] LinearAlgebra
   [de0858da] Printf
@@ -101,10 +106,11 @@ PLDCleanup.py exists simply to account for situations where PLD-Wrapper.py or PL
 At no point when using these programs should you have to touch the Julia files.
 
 Note: PLD-Wrapper.py and PLDManager.py limit the use of system resources, in an attempt not to fry your machine. If you are running them in a subsystem, or a VM, it will similarly attempt not to use all of the subsystem/VM resources. Make sure you account for this when allocating resources to such a subsystem or VM.
+Specifically, CPU usage and RAM usage are both limited, although it is not theoretically impossible for either to become problematic if many numeric processes use much more resources than average.
 
 ## Known Issues
 
-The current delay between starting numeric processes in parallel is insufficient to properly protect system resources for difficult diagrams, but increasing it would cause large slowdowns. I am temtpted to recommend that users adjust said timeout themselves. (the timeout is currently set at 60 seconds and can be modified in the main functions of PLDManager.py or PLD-Wrapper.py)
+Whilst I have tried to ensure the input processing for this program is as robust as possible, inevitably, one must choose a format and stick to it. If you are sure you installed the program correctly, but are having problems running a specific diagram, I suggest to check the formatting of your inputs as a first step.
 
 ## Acknowledgements
 

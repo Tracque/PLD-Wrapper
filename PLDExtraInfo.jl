@@ -106,22 +106,24 @@ internal_masses = convertStringToArray(args[3])
 external_masses = convertStringToArray(args[4])
 discs_file = args[8]
 output_file = args[9]
-codim_start = nothing
-face_start = nothing
+faces_done = []
 
 open(discs_file, "r") do file
-    firstline = readline(file)
 
-    matched = match(r"codim: (\d+), face: (\d+)/(\d+)", firstline)
+    for line in eachline(file)
 
-    global codim_start = parse(Int, matched.captures[1])
-    global face_start = parse(Int, matched.captures[2])
+        matched = match(r"codim: (\d+), face: (\d+)/(\d+)", line)
+
+        push!(faces_done, [parse(Int, matched.captures[1]), parse(Int, matched.captures[2])])
+
+    end
 end
 
+faces_done = sort(faces_done, by = x -> (-x[1], x[2]))
 
 discs, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, load_output = discs_file, substitutions = subRules)
 
-unique_discs, weight_list = discriminants_with_weights(U+F, discs, codim_start=codim_start, face_start=face_start)
+unique_discs, weight_list = discriminants_with_weights(U+F, discs, faces_done = faces_done)
 
 genericEuler = maximum([getGenericEuler(U+F, pars, vars, :random) for i in 1:10])
 
