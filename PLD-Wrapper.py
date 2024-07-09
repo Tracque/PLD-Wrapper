@@ -69,8 +69,8 @@ class interaction_API():
 
         #Print out final info to file
 
-        args[4] = save_output + ".txt"
-        args[5] = save_output + "_info.txt"
+        args[7] = save_output + ".txt"
+        args[8] = save_output + "_info.txt"
 
         with open(output_dir + "ExtraInputs.txt", "w") as file:
             for arg in args:

@@ -102,14 +102,26 @@ else
     subRules = []
 end
 
-internal_masses = convertStringToArray(args[3]);
-external_masses = convertStringToArray(args[4]);
-discs_file = args[5];
-output_file = args[6]
+internal_masses = convertStringToArray(args[3])
+external_masses = convertStringToArray(args[4])
+discs_file = args[8]
+output_file = args[9]
+codim_start = nothing
+face_start = nothing
+
+open(discs_file, "r") do file
+    firstline = readline(file)
+
+    matched = match(r"codim: (\d+), face: (\d+)/(\d+)", firstline)
+
+    global codim_start = parse(Int, matched.captures[1])
+    global face_start = parse(Int, matched.captures[2])
+end
+
 
 discs, pars, vars, U, F = getPLD(edges, nodes, internal_masses=internal_masses, external_masses=external_masses, load_output = discs_file, substitutions = subRules)
 
-unique_discs, weight_list = discriminants_with_weights(U+F, discs)
+unique_discs, weight_list = discriminants_with_weights(U+F, discs, codim_start=codim_start, face_start=face_start)
 
 genericEuler = maximum([getGenericEuler(U+F, pars, vars, :random) for i in 1:10])
 

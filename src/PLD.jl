@@ -87,7 +87,6 @@ function getWeights(f)
     convert.(Vector{Vector{Int64}},weightlist)
 end
 
-
 # Scale a polynomial f so that its leading term has coefficient 1.
 # -------------  Input:
 # f         the polynomial we want to normalize
@@ -1084,9 +1083,22 @@ end
 # -------------  Output:
 # unique_discs          list of unique discriminants
 # weight_list           list of weights for each unique discriminant
-function discriminants_with_weights(f, discs; skip_1 = true, verbose = true)
+function discriminants_with_weights(f, discs; codim_start = nothing, face_start = nothing, skip_1 = true, verbose = true)
 
-    wghts = vcat(reverse(getWeights(f))...)
+    all_wghts = getWeights(f)
+
+    if isnothing(codim_start) || isnothing(face_start)
+        wghts = vcat(reverse(all_wghts)...)
+    else
+        wghts = [all_wghts[codim_start+1][face_start:end]]
+        for codim in codim_start:-1:1
+            push!(wghts, all_wghts[codim])
+        end
+
+        wghts = vcat(wghts...)
+    end
+
+
     flat_discs = reduce(vcat, discs)
     unique_discs = unique(flat_discs)
     unique_discs_string = string.(unique_discs)

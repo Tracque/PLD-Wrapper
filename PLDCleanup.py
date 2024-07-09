@@ -3,9 +3,9 @@ import os
 import glob
 import subprocess
 
-def cleanup_diagram_data(diagram_names):
+def cleanup_diagram_data(diagram_names, output_dir):
 
-    input_files = glob.glob("PLDinputs*.txt")
+    input_files = glob.glob(output_dir + "PLDinputs*.txt")
     
     for file in input_files:
         os.remove(file)
@@ -67,27 +67,32 @@ def convert_string_to_array(string):
 if __name__ == "__main__":
 
     # Initial parameters
-    edges =  [[1,7], [1,6], [2,7], [2,3], [3,6], [4,5], [4,6], [5,7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1,2], [2,3], [3,4], [1,4]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[0, 0, 0, 0, 0]"
+    nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
+    internal_masses =  "[0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    external_masses =  "[m1, m2, m3, m4]"
+
+    #Set these both to 0 if all faces were calculated. Otherwise, set it to the comd/face you started on
+    codim_start = 1
+    face_start = 1
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ['dpent-s23-0-lim'] 
+    output_file_names = ['output/box-0intmasses-s-eq-0-lim'] 
     save_output = output_file_names[0]
+    output_dir = "output/"
 
-    subs = "[s23 => 0]" #Set this to "[]" if you do not need to make any specific substitutions
+    subs = "[s => 0]" #Set this to "[]" if you do not need to make any specific substitutions
 
     if subs == "[]":
-        args = [edges, nodes, internal_masses, external_masses, save_output + ".txt", save_output + "_info.txt"]
+        args = [edges, nodes, internal_masses, external_masses, "a", codim_start, face_start, save_output + ".txt", save_output + "_info.txt"]
     else:
         #A few dummy arguments here so that I can reuse code
-        args = [edges, nodes, internal_masses, external_masses, save_output + ".txt", save_output + "_info.txt", "a", "a", "a", subs]
+        args = [edges, nodes, internal_masses, external_masses, "a", codim_start, face_start, save_output + ".txt", save_output + "_info.txt", subs]
 
     print("Manually compiling output...")
 
-    lines = cleanup_diagram_data(output_file_names)
+    lines = cleanup_diagram_data(output_file_names, output_dir)
 
     with open(save_output + ".txt", "w") as file:
         for line in lines:
@@ -99,11 +104,11 @@ if __name__ == "__main__":
 
     print("Finally, creating an info file with extra output...")
 
-    with open("ExtraInputs.txt", "w") as file:
+    with open(output_dir + "ExtraInputs.txt", "w") as file:
         for arg in args:
             file.write(f"{arg}\n")
 
-    with open("output.txt", "w") as output_file_handle:
+    with open(output_dir + "output.txt", "w") as output_file_handle:
             extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
 
     while True:
@@ -112,8 +117,8 @@ if __name__ == "__main__":
         else:
             break
 
-    os.remove("output.txt")
-    os.remove("ExtraInputs.txt")
+    os.remove(output_dir + "output.txt")
+    os.remove(output_dir + "ExtraInputs.txt")
 
     print("Extra info printed to file: " + save_output + "_info.txt")
 
