@@ -586,8 +586,7 @@ if __name__ == "__main__":
                 <div class="box" id="box1" style="text-align:left">
                     <h1 style="font-size:30px; text-align:center;">PLD User Interface</h1>
                     <p style="line-height: 1.2">
-                        Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br>
-                        I have tried to allow for many possible variable labels for the squared masses, including p, P, m, M, q, Q, l and L. (as in m1, m2, m3,... or similar) <br>
+                        Keep your inputs to the suggested format to ensure compatibility with PLD.jl <br><br>
                         You should ensure you align the edges/internal masses and the nodes/external masses. For example, this means if your edges are input as [[1,2],...], then the internal mass array [m1,...] will set the mass of the [1,2] edge to m1.
                         NB: edges should by input as [[i,j],...] with i <= j.
                     </p>
@@ -626,7 +625,7 @@ if __name__ == "__main__":
                     File Path <input type="text" id="filePath"> <br>
 
                     <br>
-                    Finally, input any custom substitutions below. (e.g. specific parameterizations/limits)
+                    Finally, input any custom substitutions below. (e.g. specific parameterizations/limits)<br>
                     Sub Rules <input type="text" id="subRules" placeholder="e.g. [s23 => 0]"> <br>
 
                     <button id="startButton">Start Calculation</button>

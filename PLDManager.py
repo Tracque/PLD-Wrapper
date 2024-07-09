@@ -10,7 +10,7 @@ def main():
     edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
     external_masses =  "[m1, m2, m3, m4]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"

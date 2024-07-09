@@ -73,12 +73,8 @@ if __name__ == "__main__":
     edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[m1, m2, m3, m4]"
-
-    #Set these both to 0 if all faces were calculated. Otherwise, set it to the comd/face you started on
-    codim_start = 1
-    face_start = 1
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
+    external_masses =  "[m1, m2, m3, m4]" #note that all masses label the SQUARED masses
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
     output_file_names = ['output/test'] 
@@ -87,11 +83,11 @@ if __name__ == "__main__":
 
     subs = "[t => 0]" #Set this to "[]" if you do not need to make any specific substitutions
 
+    #A few dummy arguments here so that I can reuse code
     if subs == "[]":
-        args = [edges, nodes, internal_masses, external_masses, "a", codim_start, face_start, save_output + ".txt", save_output + "_info.txt"]
+        args = [edges, nodes, internal_masses, external_masses, "a", "a", "a", save_output + ".txt", save_output + "_info.txt"]
     else:
-        #A few dummy arguments here so that I can reuse code
-        args = [edges, nodes, internal_masses, external_masses, "a", codim_start, face_start, save_output + ".txt", save_output + "_info.txt", subs]
+        args = [edges, nodes, internal_masses, external_masses, "a", "a", "a", save_output + ".txt", save_output + "_info.txt", subs]
 
     print("Manually compiling output...")
 
