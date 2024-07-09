@@ -12,7 +12,7 @@ class interaction_API():
         self.stop = False
 
     #dummy arg here because the api interaction seems to insist on passing an extra garbage (as far as our purposes) argument 
-    def execute_PLD(dummy, edges, nodes, internal_masses, external_masses, save_output, codim_start=-1, face_start=1, single_face=False, subRules = []):
+    def execute_PLD(dummy, edges, nodes, internal_masses, external_masses, save_output, codim_start=-1, face_start=1, single_face=False, sub_rules = []):
 
         # Specify the path to the main Julia script
         julia_script_path = "PLDJob.jl"
@@ -26,6 +26,11 @@ class interaction_API():
         codim_start = int(codim_start)
         face_start = int(face_start)
         method = "sym"
+
+        if sub_rules == "":
+            subRules = []
+        else:
+            subRules = sub_rules
 
         args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subRules]
 
@@ -92,6 +97,9 @@ class interaction_API():
         return 0
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay=60, output_file="output/output.txt", output_dir="output/"):
+
+    num_retry_cap = 3
+    num_retries = []
 
     num_processes = []
     num_queue = []
@@ -249,14 +257,30 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                         #Create a new process to try the numeric method in the background
                         num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
-
+                        num_retries.append(0)
                         num_queue.pop(0)
 
                         last_num_start_time = time.time()
 
-                        for task in num_processes:
-                            if task.poll() != None:
+                        for i in range(len(num_processes)):
+                            if num_processes[i].poll() == 0: #Exited normally
                                 stdout, stderr = task.communicate() #This should clean up output pipelines
+                            elif num_processes[i].poll() != None: #Exited with an error
+                                stdout, stderr = task.communicate() 
+                                if num_retries[i] < num_retry_cap:
+                                    window.evaluate_js('appendToOutput("One of the numeric processes encountered an error! Restarting it...")')
+                                    num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                    num_retries[i] += 1
+                                else:
+                                    window.evaluate_js(f'appendToOutput("Warning: the retry cap of {num_retry_cap} has been exceeded.")')
+
+                                    with open(output_dir + "PLDinputs" + str(i+1) + ".txt", "r") as file:
+
+                                        lines = file.readlines()
+
+                                        window.evaluate_js(f'appendToOutput("The contribution from codim {lines[5].strip()}, at face {lines[6].strip()} will therefore be missing.")')
+                                            
+
                             
 
                 # Check the last modification time of the output file
@@ -386,7 +410,6 @@ def compile_diagram_data(diagram_name):
     all_output = []
 
     #First open the main (symbolic) output file
-
     if os.path.exists(diagram_name + ".txt"):
         with open(diagram_name + ".txt", "r") as file:
 
@@ -396,7 +419,12 @@ def compile_diagram_data(diagram_name):
                 match = re.search(r'codim: (\d+), face: (\d+)/(\d+)', line)
                 codim = int(match.group(1))
                 face = int(match.group(2))
-                all_output.append(["(sym) " + line, codim, face])
+                
+                #Don't falsely relabel an already labeled line
+                if line[0] == "(":
+                    all_output.append([line, codim, face])
+                else:
+                    all_output.append(["(sym) " + line, codim, face])
 
         #We have extracted all the output now, so can clean up the output files
         os.remove(diagram_name + ".txt")
@@ -414,7 +442,12 @@ def compile_diagram_data(diagram_name):
             if match != None:
                 codim = int(match.group(1))
                 face = int(match.group(2))
-                all_output.append(["(num) " + line, codim, face])
+                
+                #Don't falsely relabel an already labeled line
+                if line[0] == "(":
+                    all_output.append([line, codim, face])
+                else:
+                    all_output.append(["(num) " + line, codim, face])
 
     sorted_output = sorted(all_output, key=lambda o: (o[1], -o[2]), reverse=True)
 

@@ -43,8 +43,11 @@ def cleanup_diagram_data(diagram_names, output_dir):
                     codim = int(match.group(1))
                     face = int(match.group(2))
 
-                    #No need to worry about false relabelling since num files are never sorted
-                    all_output.append(["(num) " + line, codim, face])
+                    #Don't falsely relabel an already labeled line
+                    if line[0] == "(":
+                        all_output.append([line, codim, face])
+                    else:
+                        all_output.append(["(num) " + line, codim, face])
 
         #We have extracted all the output now, so can clean up the output files
         os.remove(diagram_name + ".txt")
@@ -67,10 +70,10 @@ def convert_string_to_array(string):
 if __name__ == "__main__":
 
     # Initial parameters
-    edges =  [[1,2], [2,3], [3,4], [1,4]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
     external_masses =  "[m1, m2, m3, m4]"
 
     #Set these both to 0 if all faces were calculated. Otherwise, set it to the comd/face you started on
@@ -78,7 +81,7 @@ if __name__ == "__main__":
     face_start = 1
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ['output/box-0intmasses-s-eq-0-lim'] 
+    output_file_names = ['output/nonplanarbox-7props-s-eq-0-lim'] 
     save_output = output_file_names[0]
     output_dir = "output/"
 

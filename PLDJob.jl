@@ -85,7 +85,7 @@ nodes = convertStringToArray(args[2]);
 symbols_to_define = isolateElements(args[3])
 symbols_to_define = vcat(symbols_to_define, isolateElements(args[4]))
 
-if length(args) == 10
+if length(args) == 10 && args[10] != "[]"
     symbols_to_define = vcat(symbols_to_define, isolateSubSymbols(args[10]))
 end
 
