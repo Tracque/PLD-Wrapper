@@ -22,7 +22,6 @@ class interaction_API():
         if "/" not in save_output:
             save_output = output_dir + save_output
 
-
         # Initial parameters
         codim_start = int(codim_start)
         face_start = int(face_start)
@@ -40,7 +39,7 @@ class interaction_API():
 
         if single_face == False:
             window.evaluate_js('appendToOutput("Extracting faces and codimensions")')
-            codim_array, face_array = get_faces_codims(get_faces_path, [output_dir + "PLDinputs.txt"])
+            codim_array, face_array = get_faces_codims(get_faces_path, [output_dir + "PLDinputs.txt"], output_dir)
         else:
             codim_array = []
             face_array = []
@@ -77,7 +76,7 @@ class interaction_API():
                 file.write(f"{arg}\n")
 
         with open(output_dir + "output.txt", "w") as output_file_handle:
-                extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+                extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
 
         while True:
             if extra_info_process.poll() == None:
@@ -355,11 +354,11 @@ def read_codim_face_from_file(file_path):
         window.evaluate_js(f'appendToOutput("File {file_path} not found.")')
         return None, None
     
-def get_faces_codims(script_path, input_file_path):
+def get_faces_codims(script_path, input_file_path, output_dir):
 
     command = ["julia", script_path] + input_file_path
 
-    with open("output.txt", "w") as output_file_handle:
+    with open(output_dir + "output.txt", "w") as output_file_handle:
             main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
 
     while True:
@@ -367,7 +366,7 @@ def get_faces_codims(script_path, input_file_path):
 
         if main_process.poll() != None:
 
-            with open("output.txt", "r") as file:
+            with open(output_dir + "output.txt", "r") as file:
 
                 lines = file.readlines()
 
@@ -378,7 +377,7 @@ def get_faces_codims(script_path, input_file_path):
                 else:
 
                     codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
-                    os.remove("output.txt")  # Clean up the output file
+                    os.remove(output_dir + "output.txt")  # Clean up the output file
 
                     return convert_string_to_array(codim_string), convert_string_to_array(face_string)
                 
@@ -612,11 +611,11 @@ if __name__ == "__main__":
                 var subRules = document.getElementById("subRules").value;
 
                 if (startCodim == "" || startFace == "") {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, subRules=subRules);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, -1, 1, false, subRules=subRules);
                 } else if(document.getElementById("startCheckbox").checked == true) {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, true, subRules);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, true, subRules=subRules);
                 } else {
-                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, false, subRules);
+                    pywebview.api.execute_PLD(edgeInputs, nodeInputs, internalInputs, externalInputs, outputFilePath, startCodim, startFace, false, subRules=subRules);
                 }
 
                 // Show that we have started successfully
