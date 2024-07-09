@@ -7,16 +7,16 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 2], [2, 3],[1,3]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
-    external_masses =  "[m1, m2, m3]" #note that all masses label the SQUARED masses
+    nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...]. See the GUI or PLDJob.jl to see/modify the allowed variable symbols.
+    external_masses =  "[m1, m2, m3, m4]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "output/testtri" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "output/test" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
-    codim_start = -1 #integer. Make this <0 if you want to do everything
+    codim_start = 1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.

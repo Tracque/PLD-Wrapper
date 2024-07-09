@@ -8,8 +8,11 @@ import glob
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay = 60, output_file="output/output.txt", output_dir = "output/"):
 
+    baseline_mem_usage = psutil.virtual_memory().used
+
     num_retry_cap = 3
     num_retries = []
+    inactive_num_processes = 0
 
     num_processes = []
     num_queue = []
@@ -34,6 +37,9 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
         # Run the command, redirecting output to a file
         with open(output_file, "w") as output_file_handle:
             main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+
+        baseline_mem_usage += 2147483648 #2GB
+        current_estimated_mem_usage = baseline_mem_usage
 
         start_time = time.time()
 
@@ -152,9 +158,10 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         start_time = time.time()
                         symTaskFinishedLoading = False
 
+
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and psutil.virtual_memory().percent < 70:
+                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and float(current_estimated_mem_usage/psutil.virtual_memory().total) < 70 and psutil.virtual_memory().percent < 70:
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = output_dir + "PLDinputs" + str(len(num_processes) + 1) + ".txt"
@@ -173,24 +180,28 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                         last_num_start_time = time.time()
 
-                        for i in range(len(num_processes)):
-                            if num_processes[i].poll() == 0: #Exited normally
-                                stdout, stderr = task.communicate() #This should clean up output pipelines
-                            elif num_processes[i].poll() != None: #Exited with an error
-                                stdout, stderr = task.communicate() 
-                                if num_retries[i] < num_retry_cap:
-                                    print("One of the numeric processes encountered an error! Restarting it...")
-                                    num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                                    num_retries[i] += 1
-                                else:
-                                    print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
+                inactive_num_processes = 0
 
-                                    with open(output_dir + "PLDinputs" + str(i+1) + ".txt", "r") as file:
+                for i in range(len(num_processes)):
+                    if num_processes[i].poll() == 0: #Exited normally
+                        stdout, stderr = task.communicate() #This should clean up output pipelines
+                        inactive_num_processes += 1
+                    elif num_processes[i].poll() != None: #Exited with an error
+                        stdout, stderr = task.communicate() 
+                        if num_retries[i] < num_retry_cap:
+                            print("One of the numeric processes encountered an error! Restarting it...")
+                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_retries[i] += 1
+                        else:
+                            print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
 
-                                        lines = file.readlines()
+                            with open(output_dir + "PLDinputs" + str(i+1) + ".txt", "r") as file:
 
-                                        print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
-                                            
+                                lines = file.readlines()
+
+                                print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
+                                    
+                current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 #4GB per num process
 
                 # Check the last modification time of the output file
                 if symTasksDone == False:
