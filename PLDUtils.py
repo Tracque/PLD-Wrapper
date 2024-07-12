@@ -6,6 +6,9 @@ import os
 import copy
 import glob
 
+#TODO: Check on numeric processes in case they also stall
+#TODO: Sysimage thing before running on school servers (for reliability)
+
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay = 60, output_file="output/output.txt", output_dir = "output/"):
 
     baseline_mem_usage = psutil.virtual_memory().used
@@ -192,7 +195,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             print("One of the numeric processes encountered an error! Restarting it...")
                             num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                             num_retries[i] += 1
-                        else:
+                        elif num_retries[i] == num_retry_cap:
                             print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
 
                             with open(output_dir + "PLDinputs" + str(i+1) + ".txt", "r") as file:
@@ -200,6 +203,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 lines = file.readlines()
 
                                 print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
+
+                                num_retries[i] += 1
+
+                        else:
+                            continue
+                    else:
+                        cpu_time = 
+                        num_last_cpu_times[i] 
                                     
                 current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 #4GB per num process
 

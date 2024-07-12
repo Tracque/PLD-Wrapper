@@ -7,14 +7,14 @@ def main():
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 7], [1, 6], [2, 7], [2, 3], [3, 6], [4, 5], [4, 6], [5, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
-    external_masses =  "[m1, m2, m3, m4]" #note that all masses label the SQUARED masses
+    nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
+    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "output/test" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "data/dpent-test" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = 1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
@@ -22,6 +22,7 @@ def main():
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
 
     subs = "[]" #Set this to "[]" if you do not need to make any specific substitutions
+    #Format your substitutions as "[s => 0, t => a]" etc.
 
     args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subs]
 
