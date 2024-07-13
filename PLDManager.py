@@ -14,9 +14,9 @@ def main():
     external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "data/dpent-test" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "dpent/32145" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
-    codim_start = 1 #integer. Make this <0 if you want to do everything
+    codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
@@ -72,8 +72,7 @@ def main():
         for arg in args:
             file.write(f"{arg}\n")
 
-    with open(output_dir + "output.txt", "w") as output_file_handle:
-            extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+    extra_info_process = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", "PLDExtraInfo.jl", output_dir + "ExtraInputs.txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
 
     while True:
         if extra_info_process.poll() == None:
@@ -83,12 +82,9 @@ def main():
 
 
     if extra_info_process.poll() == 0:
-        os.remove(output_dir + "output.txt")
         os.remove(output_dir + "ExtraInputs.txt")
-
         print("Extra info printed to file: " + save_output + "_info.txt")
     else:
-        os.remove(output_dir + "output.txt")
         print("An error occured when trying to create the extra output.")
         print("If you want to retry, you can run the command 'julia PLDExtraInfo.jl " + output_dir + "ExtraInputs.txt'.")
 

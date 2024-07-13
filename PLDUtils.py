@@ -36,11 +36,11 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
     try:
         # Construct the command to run Julia script
-        command = ["julia", script_path] + inputfile
+        command = ["julia", "--sysimage", "PLD_sysimage.so", script_path] + inputfile
 
         # Run the command, redirecting output to a file
         with open(output_file, "w") as output_file_handle:
-            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.DEVNULL, text=True)
 
         baseline_mem_usage += 2147483648 #2GB
         current_estimated_mem_usage = baseline_mem_usage
@@ -157,7 +157,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 file.write(f"{arg}\n")
 
                         with open(output_file, "w") as output_file_handle:
-                            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)               
+                            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.DEVNULL, text=True)               
 
                         start_time = time.time()
                         symTaskFinishedLoading = False
@@ -177,7 +177,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
-                        num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+                        num_processes.append(subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
                         num_retries.append(0)
                         num_cpu_times.append(0)
                         num_idle_cycles.append(0)
@@ -186,17 +186,18 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                         last_num_start_time = time.time()
 
+
                 inactive_num_processes = 0
+
+
 
                 for i in range(len(num_processes)):
                     if num_processes[i].poll() == 0: #Exited normally
-                        stdout, stderr = task.communicate() #This should clean up output pipelines
                         inactive_num_processes += 1
-                    elif num_processes[i].poll() != None: #Exited with an error
-                        stdout, stderr = task.communicate() 
+                    elif num_processes[i].poll() != None: #Exited with an error 
                         if num_retries[i] < num_retry_cap:
                             print("One of the numeric processes encountered an error! Restarting it...")
-                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_processes[i] = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
                             num_retries[i] += 1
                         elif num_retries[i] == num_retry_cap:
                             print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
@@ -217,12 +218,19 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         cpu_time = proc.cpu_times()
                         if cpu_time.user + cpu_time.system > num_cpu_times[i]:
                             num_cpu_times[i] = cpu_time.user + cpu_time.system
+                            num_idle_cycles[i] = 0
                         else:
-                            num_idle_cycles += 1
+                            num_idle_cycles[i] += 1
 
-                        if num_idle_cycles > 30: #5 mins idle
+                        if num_idle_cycles[i] > 10: #5 mins idle
                             print("One of the numeric processes has been idling for too long. Restarting it...")
-                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_processes[i].kill()
+                            if num_processes[i].stdout:
+                                num_processes[i].stdout.close()
+                            if num_processes[i].stderr:
+                                num_processes[i].stderr.close()
+                            num_processes[i] = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            num_idle_cycles[i] = 0
                             num_retries[i] += 1
 
                                     
@@ -330,7 +338,7 @@ def get_faces_codims(script_path, input_file_path, output_dir="output/"):
     command = ["julia", script_path] + input_file_path
 
     with open(output_dir + "output.txt", "w") as output_file_handle:
-            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+            main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.DEVNULL, text=True)
 
     while True:
         time.sleep(10) #Avoid busy watching

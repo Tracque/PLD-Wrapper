@@ -309,12 +309,19 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         cpu_time = proc.cpu_times()
                         if cpu_time.user + cpu_time.system > num_cpu_times[i]:
                             num_cpu_times[i] = cpu_time.user + cpu_time.system
+                            num_idle_cycles[i] = 0
                         else:
-                            num_idle_cycles += 1
+                            num_idle_cycles[i] += 1
 
-                        if num_idle_cycles > 30: #5 mins idle
-                            print("One of the numeric processes has been idling for too long. Restarting it...")
+                        if num_idle_cycles[i] > 30: #5 mins idle
+                            window.evaluate_js('appendToOutput("One of the numeric processes has been idling for too long. Restarting it...")')
+                            num_processes[i].kill()
+                            if num_processes[i].stdout:
+                                num_processes[i].stdout.close()
+                            if num_processes[i].stderr:
+                                num_processes[i].stderr.close()
                             num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_idle_cycles[i] = 0
                             num_retries[i] += 1
                                     
                 current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 * 2 #8GB per num process     
