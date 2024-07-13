@@ -6,7 +6,6 @@ import os
 import copy
 import glob
 
-#TODO: Check on numeric processes in case they also stall
 #TODO: Sysimage thing before running on school servers (for reliability)
 
 def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay = 60, output_file="output/output.txt", output_dir = "output/"):
@@ -15,6 +14,8 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
     num_retry_cap = 3
     num_retries = []
+    num_cpu_times = []
+    num_idle_cycles = []
     inactive_num_processes = 0
 
     num_processes = []
@@ -178,6 +179,8 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         #Create a new process to try the numeric method in the background
                         num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
                         num_retries.append(0)
+                        num_cpu_times.append(0)
+                        num_idle_cycles.append(0)
 
                         num_queue.pop(0)
 
@@ -209,10 +212,21 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         else:
                             continue
                     else:
-                        cpu_time = 
-                        num_last_cpu_times[i] 
+                        pid = num_processes[i].pid
+                        proc = psutil.Process(pid)
+                        cpu_time = proc.cpu_times()
+                        if cpu_time.user + cpu_time.system > num_cpu_times[i]:
+                            num_cpu_times[i] = cpu_time.user + cpu_time.system
+                        else:
+                            num_idle_cycles += 1
+
+                        if num_idle_cycles > 30: #5 mins idle
+                            print("One of the numeric processes has been idling for too long. Restarting it...")
+                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_retries[i] += 1
+
                                     
-                current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 #4GB per num process
+                current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 * 2 #8GB per num process
 
                 # Check the last modification time of the output file
                 if symTasksDone == False:

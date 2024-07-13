@@ -109,6 +109,9 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
     num_retry_cap = 3
     num_retries = []
+    num_cpu_times = []
+    num_idle_cycles = []
+    inactive_num_processes = 0
 
     num_processes = []
     num_queue = []
@@ -299,8 +302,22 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 
                         else:
                             continue
+                
+                    else:
+                        pid = num_processes[i].pid
+                        proc = psutil.Process(pid)
+                        cpu_time = proc.cpu_times()
+                        if cpu_time.user + cpu_time.system > num_cpu_times[i]:
+                            num_cpu_times[i] = cpu_time.user + cpu_time.system
+                        else:
+                            num_idle_cycles += 1
+
+                        if num_idle_cycles > 30: #5 mins idle
+                            print("One of the numeric processes has been idling for too long. Restarting it...")
+                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            num_retries[i] += 1
                                     
-                current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 #4GB per num process     
+                current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 * 2 #8GB per num process     
 
                 # Check the last modification time of the output file
                 if symTasksDone == False:
