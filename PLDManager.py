@@ -3,34 +3,34 @@ import os
 import PLDUtils
 import sys
 
-def main(mem_limit=0):
+def main(mem_limit=0, proc_num="main"):
 
     if type(mem_limit) == str:
         #Check for units
         if "k" in mem_limit[-3:] or "K" in mem_limit[-3:]:
-            mem_limit = mem_limit * 1024
+            mem_limit = int(mem_limit[:-1]) * 1024
         elif "m" in mem_limit[-3:] or "M" in mem_limit[-3:]:
-            mem_limit = mem_limit * 1048576
+            mem_limit = int(mem_limit[:-1]) * 1048576
         elif "g" in mem_limit[-3:] or "G" in mem_limit[-3:]:
-            mem_limit = mem_limit * 1073741824
+            mem_limit = int(mem_limit[:-1]) * 1073741824
 
     # Specify the path to your Julia script
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 7], [1, 6], [2, 7], [2, 3], [3, 6], [4, 5], [4, 6], [5, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
-    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
+    internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" #formatted like [m1,m2,...].
+    external_masses =  "[0, 0, 0, 0, p2]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "dpent/32145" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "Hj-npl-pentb" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
-    single_face = False #Set this to True if you only want to find the discriminant associated with just one face.
+    single_face = False #Set this to True if you only want to find the discriminant associated wit  h just one face.
 
     subs = "[]" #Set this to "[]" if you do not need to make any specific substitutions
     #Format your substitutions as "[s => 0, t => a]" etc.
@@ -38,7 +38,7 @@ def main(mem_limit=0):
     args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subs]
 
     #write arguments to file
-    with open(output_dir + "PLDinputs.txt", 'w') as file: 
+    with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
         for arg in args:
             file.write(f"{arg}\n")
 
@@ -47,14 +47,14 @@ def main(mem_limit=0):
 
     if single_face == False:
         print("Extracting faces and codimensions")
-        codim_array, face_array = PLDUtils.get_faces_codims(get_faces_path, [output_dir + "PLDinputs.txt"], output_dir)
+        codim_array, face_array = PLDUtils.get_faces_codims(get_faces_path, [output_dir + "PLDinputs_proc_" + proc_num + ".txt"], output_dir, proc_num=proc_num)
     else:
         codim_array = []
         face_array = []
 
     print("Starting calculation of singularities")
     
-    PLDUtils.run_julia_script(julia_script_path, [output_dir + "PLDinputs.txt"], args, codim_array, face_array, output_dir = output_dir, max_mem=mem_limit)
+    PLDUtils.run_julia_script(julia_script_path, [output_dir + "PLDinputs_proc_" + proc_num + ".txt"], args, codim_array, face_array, output_file=output_dir + "output_proc_" + proc_num + ".txt", output_dir = output_dir, max_mem = mem_limit, proc_num = proc_num)
 
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
 
@@ -79,12 +79,11 @@ def main(mem_limit=0):
     args[7] = save_output + ".txt"
     args[8] = save_output + "_info.txt"
 
-    with open(output_dir + "ExtraInputs.txt", "w") as file:
+    with open(output_dir + "ExtraInputs_proc_" + proc_num + ".txt", "w") as file:
         for arg in args:
             file.write(f"{arg}\n")
 
-    extra_info_process = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", "PLDExtraInfo.jl", output_dir + "ExtraInputs.txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
-
+    extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
     while True:
         if extra_info_process.poll() == None:
             continue

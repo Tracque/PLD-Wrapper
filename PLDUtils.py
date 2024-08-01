@@ -228,7 +228,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         else:
                             num_idle_cycles[i] += 1
 
-                        if num_idle_cycles[i] > 10: #5 mins idle
+                        if num_idle_cycles[i] > 30: #5 mins idle
                             print("One of the numeric processes has been idling for too long. Restarting it...")
                             num_processes[i].kill()
                             if num_processes[i].stdout:

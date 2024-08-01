@@ -94,7 +94,7 @@ def main(perm, max_mem, proc_num):
         for arg in args:
             file.write(f"{arg}\n")
 
-    extra_info_process = subprocess.Popen(["julia", "--sysimage", "PLD_sysim.so", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
 
     while True:
         if extra_info_process.poll() == None:
