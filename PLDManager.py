@@ -1,8 +1,19 @@
 import subprocess
 import os
 import PLDUtils
+import sys
 
-def main():
+def main(mem_limit=0):
+
+    if type(mem_limit) == str:
+        #Check for units
+        if "k" in mem_limit[-3:] or "K" in mem_limit[-3:]:
+            mem_limit = mem_limit * 1024
+        elif "m" in mem_limit[-3:] or "M" in mem_limit[-3:]:
+            mem_limit = mem_limit * 1048576
+        elif "g" in mem_limit[-3:] or "G" in mem_limit[-3:]:
+            mem_limit = mem_limit * 1073741824
+
     # Specify the path to your Julia script
     julia_script_path = "PLDJob.jl"
 
@@ -43,7 +54,7 @@ def main():
 
     print("Starting calculation of singularities")
     
-    PLDUtils.run_julia_script(julia_script_path, [output_dir + "PLDinputs.txt"], args, codim_array, face_array, output_dir = output_dir)
+    PLDUtils.run_julia_script(julia_script_path, [output_dir + "PLDinputs.txt"], args, codim_array, face_array, output_dir = output_dir, max_mem=mem_limit)
 
     print("Sucessfully executed PLD.jl for the provided diagram(s)")
 
@@ -89,4 +100,10 @@ def main():
         print("If you want to retry, you can run the command 'julia PLDExtraInfo.jl " + output_dir + "ExtraInputs.txt'.")
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 1:
+        main()
+    elif len(sys.argv) == 2:
+        main(mem_limit=sys.argv[1])
+    else:
+        print("WARNING: You may have passed too many arguments to the program!")
+        main(mem_limit=sys.argv[1])

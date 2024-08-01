@@ -960,7 +960,7 @@ end
 # verbose               print intermediate output, default = false
 # -------------  Output:
 # signed Euler characteristic
-function getGenericEuler(f, pars, vars, candidate = :random; homogeneous = false, cert = true, verbose = false)
+function getGenericEuler(f, pars, vars, candidate = :random; homogeneous = false, cert = true, verbose = false, allowed_retries = 5)
 
     parsstring = prod([string(p)*" " for p in pars])
     HCpars = [eval(Meta.parse("@var "*parsstring))...]
@@ -969,28 +969,43 @@ function getGenericEuler(f, pars, vars, candidate = :random; homogeneous = false
 
     fHC = oscar_to_HC_S(f,HCvars,HCpars)
 
-    if candidate == :random # Random point
-        newcoeffs = randn(ComplexF64,length(pars))
-    else # Random point on candidate = 0
-        candidateHC = oscar_to_HC_Q(candidate,HCpars)
-        if verbose
-            println("Checking candidate ", candidateHC)
-        end
-        if length(pars) == 1
-            # Due to a bug in HomotopyContinuation.jl, we cannot solve the univariate equation x = 0
-            # Here, we implement a quick and dirty fix
-            @var z
-            R = HomotopyContinuation.solve(System([candidateHC;z-1], variables = [HCpars;z]), compile = false, threading = true, show_progress = verbose)
-            newcoeffs = [solutions(R)[1][1]]
-        else
-            A = randn(ComplexF64,length(pars)-1,length(pars))
-            b = randn(ComplexF64,length(pars)-1)
-            lineq = A*HCpars - b
+    newcoeffs = []
+    retry_count = 0
 
-            S = System([lineq;candidateHC], variables = HCpars)
-            R = HomotopyContinuation.solve(S; compile = false, threading = true, show_progress = verbose)
+    while is_empty(newcoeffs)
+        if candidate == :random # Random point
+            newcoeffs = randn(ComplexF64,length(pars))
+        else # Random point on candidate = 0
+            candidateHC = oscar_to_HC_Q(candidate,HCpars)
+            if verbose
+                println("Checking candidate ", candidateHC)
+            end
+            if length(pars) == 1
+                # Due to a bug in HomotopyContinuation.jl, we cannot solve the univariate equation x = 0
+                # Here, we implement a quick and dirty fix
+                @var z
+                R = HomotopyContinuation.solve(System([candidateHC;z-1], variables = [HCpars;z]), compile = false, threading = true, show_progress = verbose)
+                newcoeffs = [solutions(R)[1][1]]
+            else
+                A = randn(ComplexF64,length(pars)-1,length(pars))
+                b = randn(ComplexF64,length(pars)-1)
+                lineq = A*HCpars - b
 
-            newcoeffs = solutions(R)[1]
+                S = System([lineq;candidateHC], variables = HCpars)
+                R = HomotopyContinuation.solve(S; compile = false, threading = true, show_progress = verbose)
+                
+                if is_empty(solutions(R))
+                    println("No solutions found for the Euler characteristic. Retrying...")
+                    retry_count += 1
+                    if retry_count > allowed_retries
+                        println("PLD.jl couldn't get the Euler characteristic!")
+                        break
+                    end
+                    continue
+                else
+                    newcoeffs = solutions(R)[1]
+                end
+            end
         end
     end
 

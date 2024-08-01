@@ -6,13 +6,17 @@ import os
 import copy
 import glob
 
-#TODO: Sysimage thing before running on school servers (for reliability)
 
-def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay = 60, output_file="output/output.txt", output_dir = "output/"):
+def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, num_delay = 60, output_file="output/output", output_dir = "output/", max_mem = 0, proc_num = "main"):
+
+    if max_mem == 0:
+        max_mem = psutil.virtual_memory().total
+    
+    program_proc = psutil.Process(os.getpid())
 
     baseline_mem_usage = psutil.virtual_memory().used
 
-    num_retry_cap = 3
+    num_retry_cap = 10
     num_retries = []
     num_cpu_times = []
     num_idle_cycles = []
@@ -27,7 +31,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
     codim_start = args[5]
 
     #write arguments to file
-    with open(output_dir + "PLDinputs.txt", 'w') as file: 
+    with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
         for arg in args:
             file.write(f"{arg}\n")
 
@@ -36,7 +40,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
     try:
         # Construct the command to run Julia script
-        command = ["julia", "--sysimage", "PLD_sysimage.so", script_path] + inputfile
+        command = ["julia", script_path] + inputfile
 
         # Run the command, redirecting output to a file
         with open(output_file, "w") as output_file_handle:
@@ -47,7 +51,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
         start_time = time.time()
 
-        symTasksDone = False
+        allFacesStarted = False
 
         symTaskFinishedLoading = False
 
@@ -55,7 +59,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
             time.sleep(10)  # Avoid busy watching 
 
             #Don't want to continue checking and potentially starting new processes when already finished
-            if symTasksDone != True:
+            if allFacesStarted != True:
 
                 elapsed_time = time.time() - start_time
 
@@ -90,7 +94,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             num_queue.append(copy.copy(args))
 
                             if codim_start == codims[-1]:
-                                symTasksDone = True
+                                allFacesStarted = True
                             else:
                                 codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
@@ -111,7 +115,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             num_queue.append(copy.copy(args))
                             
                             if codim_start == codims[-1]:
-                                symTasksDone = True
+                                allFacesStarted = True
                             else:
                                 codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
@@ -129,7 +133,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         num_queue.append(copy.copy(args))
 
                         if codim_start == codims[-1]:
-                            symTasksDone = True
+                            allFacesStarted = True
                         else:
                             codim_start, face_start = increment_face(codim_start, face_start, codims, faces)
 
@@ -143,16 +147,16 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                     #Don't keep going if we only wanted one face
                     if args[8] == True:
-                        symTasksDone = True
+                        allFacesStarted = True
 
-                    if symTasksDone == False:
+                    if allFacesStarted == False:
                         print("Continuing on with symbolic calculation in parallel.")
 
                         args[5] = codim_start
                         args[6] = face_start
                         args[7] = "sym"
 
-                        with open(output_dir + "PLDinputs.txt", 'w') as file: 
+                        with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
                             for arg in args:
                                 file.write(f"{arg}\n")
 
@@ -165,10 +169,12 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                     #Now check if we have the resources to start a numeric process 
                     #(with a timer to ensure that processes have started fully i.e. are close to peak resource usage)
-                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and psutil.cpu_percent(interval=1) < 80 and float(current_estimated_mem_usage/psutil.virtual_memory().total) < 70 and psutil.virtual_memory().percent < 70:
+                    #psutil.cpu_percent(interval=1) < 80 
+                    current_measured_mem_usage = program_proc.memory_full_info().uss
+                    if time.time() - last_num_start_time > num_delay and len(num_queue) > 0 and float(current_estimated_mem_usage/max_mem) < 70 and float(current_measured_mem_usage / max_mem) < 70:
 
                         #Adjust the inputs to avoid race conditions
-                        num_inputs = output_dir + "PLDinputs" + str(len(num_processes) + 1) + ".txt"
+                        num_inputs = output_dir + "PLDinputs_proc_" + proc_num + "_" + str(len(num_processes) + 1) + ".txt"
                         num_queue[0][4] = save_output+ "_num_" + str(len(num_processes) + 1)
                         num_queue[0][7] = "num"
 
@@ -177,7 +183,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
-                        num_processes.append(subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
+                        num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
                         num_retries.append(0)
                         num_cpu_times.append(0)
                         num_idle_cycles.append(0)
@@ -192,26 +198,26 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
 
                 for i in range(len(num_processes)):
-                    if num_processes[i].poll() == 0: #Exited normally
-                        inactive_num_processes += 1
-                    elif num_processes[i].poll() != None: #Exited with an error 
-                        if num_retries[i] < num_retry_cap:
-                            print("One of the numeric processes encountered an error! Restarting it...")
-                            num_processes[i] = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
-                            num_retries[i] += 1
-                        elif num_retries[i] == num_retry_cap:
-                            print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
-
-                            with open(output_dir + "PLDinputs" + str(i+1) + ".txt", "r") as file:
-
-                                lines = file.readlines()
-
-                                print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
-
+                    if num_processes[i].poll() != None: #Process finished
+                        if os.path.exists(save_output + "_num_" + str(i+1) + ".txt"): #Finished with output
+                            inactive_num_processes += 1
+                        else: #Retry a few times if failed
+                            if num_retries[i] < num_retry_cap:
+                                print("One of the numeric processes encountered an error! Restarting it...")
+                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
                                 num_retries[i] += 1
+                            else:
+                                print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
 
-                        else:
-                            continue
+                                with open(output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt", "r") as file:
+
+                                    lines = file.readlines()
+
+                                    print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
+
+                                    num_retries[i] += 1
+
+                        
                     else:
                         pid = num_processes[i].pid
                         proc = psutil.Process(pid)
@@ -229,7 +235,7 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 num_processes[i].stdout.close()
                             if num_processes[i].stderr:
                                 num_processes[i].stderr.close()
-                            num_processes[i] = subprocess.Popen(["julia", "--sysimage", "PLD_sysimage.so", script_path] + [output_dir + "PLDinputs" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
                             num_idle_cycles[i] = 0
                             num_retries[i] += 1
 
@@ -237,11 +243,13 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                 current_estimated_mem_usage = baseline_mem_usage + (len(num_processes) - inactive_num_processes) * 4294967296 * 2 #8GB per num process
 
                 # Check the last modification time of the output file
-                if symTasksDone == False:
+                if allFacesStarted == False:
                     last_modification_time = os.path.getmtime(output_file)
+                    if main_process.poll() != None: #If we are only waiting on numeric processes, make sure we don't timeout
+                        last_modification_time = time.time()
 
-                if main_process.poll() != None:
-                    symTasksDone = True
+                if main_process.poll() != None and num_queue == []:
+                    allFacesStarted = True
 
                 if last_modification_time > start_time:
                     symTaskFinishedLoading = True
@@ -253,18 +261,61 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
             numTasksDone = True
 
-            for task in num_processes:
-                if task.poll() == None:
-                    numTasksDone = False
+            for i in range(len(num_processes)):
+                    if num_processes[i].poll() != None: #Process finished
+                        if os.path.exists(save_output + "_num_" + str(i+1) + ".txt"): #Finished with output
+                            inactive_num_processes += 1
+                        else: #Retry a few times if failed
+                            if num_retries[i] < num_retry_cap:
+                                numTasksDone = False
+                                print("One of the numeric processes encountered an error! Restarting it...")
+                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                                num_retries[i] += 1
+                            else:
+                                print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
+
+                                with open(output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt", "r") as file:
+
+                                    lines = file.readlines()
+
+                                    print("The contribution from codim " + lines[5].strip() + ", at face " + lines[6].strip() + " will therefore be missing.")
+
+                                    num_retries[i] += 1
+
+                        
+                    else:
+                        numTasksDone = False
+
+                        #Check that numeric processes aren't idling
+                        pid = num_processes[i].pid
+                        proc = psutil.Process(pid)
+                        cpu_time = proc.cpu_times()
+                        if cpu_time.user + cpu_time.system > num_cpu_times[i]:
+                            num_cpu_times[i] = cpu_time.user + cpu_time.system
+                            num_idle_cycles[i] = 0
+                        else:
+                            num_idle_cycles[i] += 1
+
+                        if num_idle_cycles[i] > 10: #5 mins idle
+                            print("One of the numeric processes has been idling for too long. Restarting it...")
+                            num_processes[i].kill()
+                            if num_processes[i].stdout:
+                                num_processes[i].stdout.close()
+                            if num_processes[i].stderr:
+                                num_processes[i].stderr.close()
+                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            num_idle_cycles[i] = 0
+                            num_retries[i] += 1
+
                     
-            if symTasksDone and numTasksDone:
+            if allFacesStarted and numTasksDone:
 
-                os.remove(output_dir + "PLDinputs.txt")
+                #os.remove(output_dir + "PLDinputs_proc_" + proc_num + ".txt")
 
-                num_input_files = glob.glob(output_dir + "PLDinputs*.txt")
+                #num_input_files = glob.glob(output_dir + "PLDinputs_proc_" + proc_num + "*.txt")
     
-                for file in num_input_files:
-                    os.remove(file)
+                #for file in num_input_files:
+                #    os.remove(file)
                     #Clean up output files
 
                 break
@@ -333,11 +384,11 @@ def read_codim_face_from_file(file_path):
         print(f"File {file_path} not found.")
         return None, None
     
-def get_faces_codims(script_path, input_file_path, output_dir="output/"):
+def get_faces_codims(script_path, input_file_path, output_dir="output/", proc_num = "main"):
 
     command = ["julia", script_path] + input_file_path
 
-    with open(output_dir + "output.txt", "w") as output_file_handle:
+    with open(output_dir + "output_proc_" + proc_num + ".txt", "w") as output_file_handle:
             main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.DEVNULL, text=True)
 
     while True:
@@ -345,7 +396,7 @@ def get_faces_codims(script_path, input_file_path, output_dir="output/"):
 
         if main_process.poll() != None:
 
-            with open(output_dir + "output.txt", "r") as file:
+            with open(output_dir + "output_proc_" + proc_num + ".txt", "r") as file:
 
                 lines = file.readlines()
 
@@ -356,7 +407,7 @@ def get_faces_codims(script_path, input_file_path, output_dir="output/"):
                 else:
 
                     codim_string, face_string =  lines[-2], lines[-1] #Codim and face respectively
-                    #os.remove("output.txt")  # Clean up the output file
+                    #os.remove("output_proc_" + proc_num + "")  # Clean up the output file
 
                     return convert_string_to_array(codim_string), convert_string_to_array(face_string)
                 

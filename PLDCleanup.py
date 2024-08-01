@@ -5,7 +5,7 @@ import subprocess
 
 def cleanup_diagram_data(diagram_names, output_dir):
 
-    input_files = glob.glob(output_dir + "PLDinputs*.txt")
+    input_files = glob.glob(output_dir + "PLDinputs_proc_*.txt")
     
     for file in input_files:
         os.remove(file)
@@ -70,18 +70,18 @@ def convert_string_to_array(string):
 if __name__ == "__main__":
 
     # Initial parameters
-    edges =  [[1, 2], [2, 5], [3, 5], [4, 5], [3, 6], [4, 6], [1, 6]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 6], [1, 4], [3, 4], [3, 7], [5, 6], [5, 7], [2, 6], [2, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3, 4] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
-    external_masses =  "[m1, m2, m3, m4]" #note that all masses label the SQUARED masses
+    nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
+    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     #If you needed to use mutltiple calculations (and thus different file names to avoid overwriting) then make the first element of this list the name you want in the end
-    output_file_names = ['output/test'] 
+    output_file_names = ['pentjet/14325'] 
     save_output = output_file_names[0]
     output_dir = "output/"
 
-    subs = "[t => 0]" #Set this to "[]" if you do not need to make any specific substitutions
+    subs = "[s23 => 0]" #Set this to "[]" if you do not need to make any specific substitutions
 
     #A few dummy arguments here so that I can reuse code
     if subs == "[]":
@@ -108,7 +108,7 @@ if __name__ == "__main__":
             file.write(f"{arg}\n")
 
     with open(output_dir + "output.txt", "w") as output_file_handle:
-            extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
+            extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs.txt"], stdout=output_file_handle, stderr=subprocess.PIPE, text=True)
 
     while True:
         if extra_info_process.poll() == None:
