@@ -18,14 +18,14 @@ def main(mem_limit=0, proc_num="main"):
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 2], [2, 3], [3, 6], [4, 6], [5, 6], [5, 7], [1, 7], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1, 6], [1, 2], [2, 3], [3, 7], [5, 6], [5, 7], [4, 6], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, m2, m2, m2, 0, m2]" #formatted like [m1,m2,...].
-    external_masses =  "[0, 0, 0, 0, p2]" #note that all masses label the SQUARED masses
+    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
+    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "Hj-npl-pentb" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "PLD_PySecDec_Comparison/pentjet" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
@@ -99,10 +99,24 @@ def main(mem_limit=0, proc_num="main"):
         print("If you want to retry, you can run the command 'julia PLDExtraInfo.jl " + output_dir + "ExtraInputs.txt'.")
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        main()
-    elif len(sys.argv) == 2:
-        main(mem_limit=sys.argv[1])
-    else:
-        print("WARNING: You may have passed too many arguments to the program!")
-        main(mem_limit=sys.argv[1])
+
+    if sys.argv[0] == "./PLDManager.py":
+        if len(sys.argv) == 1:
+            main()
+        elif len(sys.argv) == 2:
+            main(mem_limit=sys.argv[1])
+        elif len(sys.argv) == 3:
+            main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
+        else:
+            print("WARNING: You may have passed too many arguments to the program!")
+            main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
+    else: #Command was python3 PLDManager.py
+        if len(sys.argv) == 2:
+            main()
+        elif len(sys.argv) == 3:
+            main(mem_limit=sys.argv[2])
+        elif len(sys.argv) == 4:
+            main(mem_limit=sys.argv[2], proc_num=sys.argv[3])
+        else:
+            print("WARNING: You may have passed too many arguments to the program!")
+            main(mem_limit=sys.argv[2], proc_num=sys.argv[3])
