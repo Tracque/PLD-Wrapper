@@ -107,7 +107,7 @@ end
 function oscar_to_HC_Q(f,vars)
     cffs = convert.(Rational{Int64},collect(Oscar.coefficients(f)))
     exps = collect(Oscar.AbstractAlgebra.exponent_vectors(f))
-    sum([cffs[i]*prod(vars.^exps[i]) for i = 1:length(cffs)])
+    return sum([cffs[i]*prod(vars.^exps[i]) for i = 1:length(cffs)])
 end
 
 # Converts a polynomial in Oscar.jl format, with coefficients in a polynomial ring, into a polynomial in HomotopyContinuation.jl format.

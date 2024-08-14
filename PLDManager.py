@@ -18,14 +18,14 @@ def main(mem_limit=0, proc_num="main"):
     julia_script_path = "PLDJob.jl"
 
     # Initial parameters
-    edges =  [[1, 6], [1, 2], [2, 3], [3, 7], [5, 6], [5, 7], [4, 6], [4, 7]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
+    edges =  [[1,2],[2,3],[3,4],[4,5],[1,5]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
     #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
     nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
+    internal_masses =  "[0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
     external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "PLD_PySecDec_Comparison/pentjet" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "pentagon-massless" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
@@ -92,7 +92,7 @@ def main(mem_limit=0, proc_num="main"):
 
 
     if extra_info_process.poll() == 0:
-        os.remove(output_dir + "ExtraInputs.txt")
+        os.remove(output_dir + "ExtraInputs_proc_" + proc_num + ".txt")
         print("Extra info printed to file: " + save_output + "_info.txt")
     else:
         print("An error occured when trying to create the extra output.")
