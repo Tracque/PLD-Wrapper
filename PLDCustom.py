@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import subprocess
 import os
 import PLDUtils
@@ -15,27 +16,21 @@ def main(mem_limit=0, proc_num="main"):
             mem_limit = int(mem_limit[:-1]) * 1073741824
 
     # Specify the path to your Julia script
-    julia_script_path = "PLDJob.jl"
+    julia_script_path = "CustomPoly.jl"
 
     # Initial parameters
-    edges =  [[1,2],[2,3],[3,4],[4,5],[1,5]] #formatted like [[a,b],[c,d],...] with a,b,c,d being integer labels for the vertices of the diagram. 
-    #MAKE SURE THAT EACH EDGE IS IN ASCENDING ORDER. (That is, [i,j] s.t. i <= j)
-    nodes =  [1, 2, 3, 4, 5] #formatted like [1,2,3,...,n] for an n-point diagram 
-    internal_masses =  "[0, 0, 0, 0, 0]" #formatted like [m1,m2,...].
-    external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
-
-    output_dir = "output/"
-    save_output = "pentagon-massless" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    polynomial = "α₁ + α₂ + α₃ + α₄ + α₅ + s23*α₁*α₃ + s51*α₁*α₄ + s34*α₂*α₄ + s12*α₂*α₅ + s45*α₃*α₅" #string of the polynomial
+    params = "[s12, s23, s34, s45, s51]" #list of strings of parameters
+    variables = "[α₁, α₂, α₃, α₄, α₅]" #list of strings of varaiables
+    output_dir = "output/" #This is where all the intermediate output files go (not the final output)
+    save_output = "massless-pent" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
     method = "sym" #"sym" or "num". DON'T TOUCH THIS. (The whole point of the wrapper is that it will take care of which method is best on its own)
     single_face = False #Set this to True if you only want to find the discriminant associated wit  h just one face.
 
-    subs = "[]" #Set this to "[]" if you do not need to make any specific substitutions
-    #Format your substitutions as "[s => 0, t => a]" etc.
-
-    args = [edges, nodes, internal_masses, external_masses, save_output, codim_start, face_start, method, single_face, subs]
+    args = [params, variables, polynomial, save_output, codim_start, face_start, single_face, method]
 
     #write arguments to file
     with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
@@ -43,7 +38,7 @@ def main(mem_limit=0, proc_num="main"):
             file.write(f"{arg}\n")
 
     #Find codims/faces
-    get_faces_path = "PLDGetFaces.jl"
+    get_faces_path = "CustomGetFaces.jl"
 
     if single_face == False:
         print("Extracting faces and codimensions")
@@ -77,13 +72,13 @@ def main(mem_limit=0, proc_num="main"):
     #Print out final info to file
 
     args[7] = save_output + ".txt"
-    args[8] = save_output + "_info.txt"
+    args.append(save_output + "_info.txt")
 
     with open(output_dir + "ExtraInputs_proc_" + proc_num + ".txt", "w") as file:
         for arg in args:
             file.write(f"{arg}\n")
 
-    extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    extra_info_process = subprocess.Popen(["julia", "CustomExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
     while True:
         if extra_info_process.poll() == None:
             continue
@@ -100,6 +95,9 @@ def main(mem_limit=0, proc_num="main"):
 
 if __name__ == "__main__":
 
+    #if sys.argv[0] == "./PLDCustom.py":
+
+    print(sys.argv)
     if len(sys.argv) == 1:
         main()
     elif len(sys.argv) == 2:
