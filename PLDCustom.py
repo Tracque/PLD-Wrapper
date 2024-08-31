@@ -19,9 +19,9 @@ def main(mem_limit=0, proc_num="main"):
     julia_script_path = "CustomPoly.jl"
 
     # Initial parameters
-    polynomial = "α₁ + α₂ + α₃ + α₄ + α₅ + s23*α₁*α₃ + s51*α₁*α₄ + s34*α₂*α₄ + s12*α₂*α₅ + s45*α₃*α₅" #string of the polynomial
+    polynomial = "α₁*α₄ + α₁*α₅ + α₁*α₆ + α₁*α₇ + α₁*α₈ + α₂*α₄ + α₂*α₅ + α₂*α₆ + α₂*α₇ + α₂*α₈ + α₃*α₄ + α₃*α₅ + α₃*α₆ + α₃*α₇ + α₃*α₈ + α₄*α₆ + α₄*α₇ + α₄*α₈ + α₅*α₆ + α₅*α₇ + α₅*α₈ + s51*α₁*α₄*α₆ + s23*α₁*α₄*α₇ + (-s23 - s34 + s51)*α₁*α₅*α₆ + (-s12 - s23 + s45)*α₁*α₅*α₈ + s45*α₁*α₇*α₈ + s12*α₂*α₃*α₄ + s12*α₂*α₃*α₅ + s12*α₂*α₃*α₆ + s12*α₂*α₃*α₇ + s12*α₂*α₃*α₈ + s45*α₂*α₄*α₇ + (s12 - s34 - s45)*α₂*α₅*α₆ + s12*α₂*α₅*α₇ + s45*α₂*α₇*α₈ + s34*α₃*α₄*α₆ + s12*α₃*α₄*α₈ + s45*α₃*α₅*α₈ + s45*α₃*α₇*α₈ + s45*α₄*α₇*α₈ + s45*α₅*α₇*α₈" #string of the polynomial
     params = "[s12, s23, s34, s45, s51]" #list of strings of parameters
-    variables = "[α₁, α₂, α₃, α₄, α₅]" #list of strings of varaiables
+    variables = "[α₁, α₂, α₃, α₄, α₅, α₆, α₇, α₈]" #list of strings of varaiables
     output_dir = "output/" #This is where all the intermediate output files go (not the final output)
     save_output = "massless-pent" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
@@ -95,9 +95,6 @@ def main(mem_limit=0, proc_num="main"):
 
 if __name__ == "__main__":
 
-    #if sys.argv[0] == "./PLDCustom.py":
-
-    print(sys.argv)
     if len(sys.argv) == 1:
         main()
     elif len(sys.argv) == 2:

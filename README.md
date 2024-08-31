@@ -17,7 +17,9 @@ The main program, which should be the most intuitive (if at times a little clunk
 
 The GUI-less version of the program, which is more stable and is intended to be more convenient for those who are confident with programming, or are running in a headless instance, is PLDManager.py.
 
-The script intended for use if the program does not terminate and you thus end execution early, is PLDCleanup.py.
+The script intended for use if the program does not terminate and you thus end execution early, is PLDCleanup.py. (currently this is only compatible with use of PLD for a Feynman diagram)
+
+The script to calculate the PLD with a custom (manually input) polynomial, is PLDCustom.py.
 
 Finally, the "Slurm Scripts" show an example of how the PLD-Wrapper program may be adapted for use with a compute cluster.
 
@@ -89,7 +91,7 @@ Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to wo
 
   
 
-PLD-Wrapper v1.1.1 was last tested to be compatible with the current versions of the above packages on the 1st of August 2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
+PLD-Wrapper v1.2.0 was last tested to be compatible with the current versions of the above packages on the 25th of August 2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
 
   
 
@@ -103,7 +105,7 @@ Status `~/.julia/environments/v1.10/Project.toml`
 
 [01680d73] GenericSVD v0.3.0
 
-[f213a82b] HomotopyContinuation v2.9.4
+[f213a82b] HomotopyContinuation v2.10.0
 
 [f1435218] Oscar v1.0.4
 
@@ -224,6 +226,12 @@ PLDCleanup.py exists to account for situations where PLD-Wrapper.py or PLDManage
 
 It will also delete the extra output/input files once finished.
 
+### PLD Custom
+
+PLDCustom.py allows users to input a custom polynomial in place of the Graph polynomial that would be calculated by PLD.jl in the normal case. Users must be careful to format the polynomial in the same way they format the inputs for the variables and parameters of the polynomial. (in the maths sense, so for a graph polynomial, the Schwinger parameters are the variables and the kinematic variables are the parameters!)
+
+This means if you used subscripts or brackets etc. in the polynomial, you must also do so in the input array for the varaibles/parameters.
+
 ## Advanced Usage 
 
 ### Sysimages
@@ -246,7 +254,7 @@ Something that hasn't yet been added is support for the much slower "high precis
 
 ## Known Issues
 
-  
+The cleanup script is currently only compatible with normal use of PLD. If there is demand, I will make available a version for use with custom polynomials.
 
 Whilst I have tried to ensure the input processing for this program is as robust as possible, inevitably, one must choose a format and stick to it. If you are sure you installed the program correctly, but are having problems running a specific diagram, I suggest to check the formatting of your inputs as a first step.
 

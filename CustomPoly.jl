@@ -92,19 +92,24 @@ end
 pars = convertStringToArray(args[1])
 vars = convertStringToArray(args[2])
 
-poly = eval(Meta.parse(subscript_to_bracket(args[3])))
+poly = eval(Meta.parse(args[3]))
 
 diagramName = args[4]
-codimStart = args[5]
-faceStart = args[6]
-single_face = args[7]
+codimStart = parse(Int, args[5])
+faceStart = parse(Int, args[6])
+
+if args[7] == "True"
+    single_face = true
+else
+    single_face = false
+end
 
 println("Starting...")
 println()
 
 flush(stdout)
 
-poly, S, pars, vars = HC_to_oscar_S_mynames(poly, pars, vars; parnames = string.(pars), varnames = string.(pars))
+poly, S, pars, vars = HC_to_oscar_S_mynames(poly, pars, vars; parnames = string.(pars), varnames = string.(vars))
 
 if args[8] == "sym"
 

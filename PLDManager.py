@@ -25,7 +25,7 @@ def main(mem_limit=0, proc_num="main"):
     external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "pentagon-massless" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "pentagon-massless-2" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim

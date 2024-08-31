@@ -66,6 +66,13 @@ function show_vector_sans_type(io, v::AbstractVector)
 end
 show_vector_sans_type(v::AbstractVector) = show_vector_sans_type(stdout, v)
 
+function subscript_to_bracket(str)
+    for (sub, num) in zip('₀':'₉', '0':'9')
+        str = replace(str, string(sub) => "["*string(num)*"]")
+    end
+    return replace(str, "][" => "")
+end
+
 # Expecting filepath to an input file
 
 inputfile = ARGS[1];
@@ -92,11 +99,11 @@ end
 pars = convertStringToArray(args[1])
 vars = convertStringToArray(args[2])
 
-poly = eval(Meta.parse(subscript_to_bracket(args[3])))
+poly = eval(Meta.parse(args[3]))
 
 diagramName = args[4]
-codimStart = Parse(Int, args[5])
-faceStart = Parse(Int, args[6])
+codimStart = parse(Int, args[5])
+faceStart = parse(Int, args[6])
 
 if args[7] == "True"
     single_face = true
@@ -107,8 +114,9 @@ end
 discs_file = args[8]
 output_file = args[9]
 faces_done = []
+load_output = discs_file
 
-poly, S, pars, vars = HC_to_oscar_S_mynames(poly, pars, vars; parnames = string.(pars), varnames = string.(pars))
+poly, S, pars, vars = HC_to_oscar_S_mynames(poly, pars, vars; parnames = string.(pars), varnames = string.(vars))
 
 
 
@@ -125,13 +133,19 @@ end
 
 faces_done = sort(faces_done, by = x -> (-x[1], x[2]))
 
+pars_string = [subscript_to_bracket(str) for str in string.(pars)]
+
+R, pars = polynomial_ring(QQ, pars_string)
+
+eval(Meta.parse("global ("*join(pars_string, ", ")*") = pars"))
+
 discs = []
 open(load_output, "r") do f
     for line in eachline(f)
         # Extract discriminants using regex
         disc = match(r"discriminant: (.+)$", line)
         if disc != nothing
-            push!(discriminants, eval(Meta.parse(replace("["*subscript_to_bracket(disc[1])*"]", "/" => "//"))))
+            push!(discs, eval(Meta.parse(replace("["*subscript_to_bracket(disc[1])*"]", "/" => "//"))))
         end
     end
 end

@@ -26,9 +26,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
     num_queue = []
     last_num_start_time = time.time()
 
-    save_output = args[4]
-    face_start = args[6]
-    codim_start = args[5]
+    if len(args) == 10:
+        save_output = args[4]
+        face_start = args[6]
+        codim_start = args[5]
+    else:
+        save_output = args[3]
+        face_start = args[5]
+        codim_start = args[4]
 
     #write arguments to file
     with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
@@ -87,9 +92,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             print("Starting a new process to try numerical method.")
                             print("-----------")
 
-                            args[5] = codim_start
-                            args[6] = face_start
-                            args[7] = "num"
+                            if len(args) == 10:
+                                args[5] = codim_start
+                                args[6] = face_start
+                                args[7] = "num"
+                            else:
+                                args[4] = codim_start
+                                args[5] = face_start
+                                args[7] = "num"
 
                             num_queue.append(copy.copy(args))
 
@@ -108,9 +118,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             print("Starting a new process to try numerical method.")
                             print("-----------")
 
-                            args[5] = codim_start
-                            args[6] = face_start
-                            args[7] = "num"
+                            if len(args) == 10:
+                                args[5] = codim_start
+                                args[6] = face_start
+                                args[7] = "num"
+                            else:
+                                args[4] = codim_start
+                                args[5] = face_start
+                                args[7] = "num"
 
                             num_queue.append(copy.copy(args))
                             
@@ -126,9 +141,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         print("Starting a new process to try numerical method.")
                         print("-----------")
 
-                        args[5] = codim_start
-                        args[6] = face_start
-                        args[7] = "num"
+                        if len(args) == 10:
+                            args[5] = codim_start
+                            args[6] = face_start
+                            args[7] = "num"
+                        else:
+                            args[4] = codim_start
+                            args[5] = face_start
+                            args[7] = "num"
 
                         num_queue.append(copy.copy(args))
 
@@ -146,15 +166,22 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         os.remove(output_file)  # Clean up the output file
 
                     #Don't keep going if we only wanted one face
-                    if args[8] == True:
+                    if len(args) == 10 and args[8] == True:
+                        allFacesStarted = True
+                    elif args[6] == True:
                         allFacesStarted = True
 
                     if allFacesStarted == False:
                         print("Continuing on with symbolic calculation in parallel.")
 
-                        args[5] = codim_start
-                        args[6] = face_start
-                        args[7] = "sym"
+                        if len(args) == 10:
+                            args[5] = codim_start
+                            args[6] = face_start
+                            args[7] = "sym"
+                        else:
+                            args[4] = codim_start
+                            args[5] = face_start
+                            args[7] = "sym"
 
                         with open(output_dir + "PLDinputs_proc_" + proc_num + ".txt", 'w') as file: 
                             for arg in args:
@@ -175,8 +202,12 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
                         #Adjust the inputs to avoid race conditions
                         num_inputs = output_dir + "PLDinputs_proc_" + proc_num + "_" + str(len(num_processes) + 1) + ".txt"
-                        num_queue[0][4] = save_output+ "_num_" + str(len(num_processes) + 1)
-                        num_queue[0][7] = "num"
+                        if len(args) == 10:
+                            num_queue[0][4] = save_output+ "_num_" + str(len(num_processes) + 1)
+                            num_queue[0][7] = "num"
+                        else:
+                            num_queue[0][3] = save_output+ "_num_" + str(len(num_processes) + 1)
+                            num_queue[0][7] = "num"
 
                         with open(num_inputs, 'w') as file: 
                             for arg in num_queue[0]:
@@ -310,12 +341,12 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                     
             if allFacesStarted and numTasksDone:
 
-                #os.remove(output_dir + "PLDinputs_proc_" + proc_num + ".txt")
+                os.remove(output_dir + "PLDinputs_proc_" + proc_num + ".txt")
 
-                #num_input_files = glob.glob(output_dir + "PLDinputs_proc_" + proc_num + "*.txt")
+                num_input_files = glob.glob(output_dir + "PLDinputs_proc_" + proc_num + "*.txt")
     
-                #for file in num_input_files:
-                #    os.remove(file)
+                for file in num_input_files:
+                    os.remove(file)
                     #Clean up output files
 
                 break
