@@ -2,6 +2,7 @@ import subprocess
 import os
 import PLDUtils
 import sys
+import glob
 
 def main(mem_limit=0, proc_num="main"):
 
@@ -25,7 +26,7 @@ def main(mem_limit=0, proc_num="main"):
     external_masses =  "[0, 0, 0, 0, 0]" #note that all masses label the SQUARED masses
 
     output_dir = "output/"
-    save_output = "pentagon-massless-2" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "pentagon-massless-3" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
@@ -83,7 +84,14 @@ def main(mem_limit=0, proc_num="main"):
         for arg in args:
             file.write(f"{arg}\n")
 
-    extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    
+        sysimg_file = glob.glob("*.so")
+
+    if sysimg_file:
+        extra_info_process = subprocess.Popen(["julia", "--sysimage", sysimg_file[0], "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    else:
+        extra_info_process = subprocess.Popen(["julia", "PLDExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    
     while True:
         if extra_info_process.poll() == None:
             continue

@@ -1,8 +1,8 @@
-#!/usr/bin/env python3
 import subprocess
 import os
 import PLDUtils
 import sys
+import glob
 
 def main(mem_limit=0, proc_num="main"):
 
@@ -19,11 +19,11 @@ def main(mem_limit=0, proc_num="main"):
     julia_script_path = "CustomPoly.jl"
 
     # Initial parameters
-    polynomial = "α₁*α₄ + α₁*α₅ + α₁*α₆ + α₁*α₇ + α₁*α₈ + α₂*α₄ + α₂*α₅ + α₂*α₆ + α₂*α₇ + α₂*α₈ + α₃*α₄ + α₃*α₅ + α₃*α₆ + α₃*α₇ + α₃*α₈ + α₄*α₆ + α₄*α₇ + α₄*α₈ + α₅*α₆ + α₅*α₇ + α₅*α₈ + s51*α₁*α₄*α₆ + s23*α₁*α₄*α₇ + (-s23 - s34 + s51)*α₁*α₅*α₆ + (-s12 - s23 + s45)*α₁*α₅*α₈ + s45*α₁*α₇*α₈ + s12*α₂*α₃*α₄ + s12*α₂*α₃*α₅ + s12*α₂*α₃*α₆ + s12*α₂*α₃*α₇ + s12*α₂*α₃*α₈ + s45*α₂*α₄*α₇ + (s12 - s34 - s45)*α₂*α₅*α₆ + s12*α₂*α₅*α₇ + s45*α₂*α₇*α₈ + s34*α₃*α₄*α₆ + s12*α₃*α₄*α₈ + s45*α₃*α₅*α₈ + s45*α₃*α₇*α₈ + s45*α₄*α₇*α₈ + s45*α₅*α₇*α₈" #string of the polynomial
-    params = "[s12, s23, s34, s45, s51]" #list of strings of parameters
-    variables = "[α₁, α₂, α₃, α₄, α₅, α₆, α₇, α₈]" #list of strings of varaiables
+    polynomial = "" #string of the polynomial
+    params = "[]" #list of strings of parameters
+    variables = "[]" #list of strings of varaiables
     output_dir = "output/" #This is where all the intermediate output files go (not the final output)
-    save_output = "massless-pent" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
+    save_output = "pentagon-massless" #give either a file path or a file name (if you want the file to appear in this directory) WITHOUT the file extension
 
     codim_start = -1 #integer. Make this <0 if you want to do everything
     face_start = 1 #integer. Make this 1 if you want to do everything in and past the starting codim
@@ -72,13 +72,19 @@ def main(mem_limit=0, proc_num="main"):
     #Print out final info to file
 
     args[7] = save_output + ".txt"
-    args.append(save_output + "_info.txt")
+    args[8] = save_output + "_info.txt"
 
     with open(output_dir + "ExtraInputs_proc_" + proc_num + ".txt", "w") as file:
         for arg in args:
             file.write(f"{arg}\n")
 
-    extra_info_process = subprocess.Popen(["julia", "CustomExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    sysimg_file = glob.glob("*.so")
+
+    if sysimg_file:
+        extra_info_process = subprocess.Popen(["julia", "--sysimage", sysimg_file[0],"CustomExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    else:
+        extra_info_process = subprocess.Popen(["julia", "CustomExtraInfo.jl", output_dir + "ExtraInputs_proc_" + proc_num + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+ 
     while True:
         if extra_info_process.poll() == None:
             continue
@@ -95,12 +101,23 @@ def main(mem_limit=0, proc_num="main"):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) == 1:
-        main()
-    elif len(sys.argv) == 2:
-        main(mem_limit=sys.argv[1])
-    elif len(sys.argv) == 3:
-        main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
-    else:
-        print("WARNING: You may have passed too many arguments to the program!")
-        main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
+    if sys.argv[0] == "./PLDCustom.py":
+        if len(sys.argv) == 1:
+            main()
+        elif len(sys.argv) == 2:
+            main(mem_limit=sys.argv[1])
+        elif len(sys.argv) == 3:
+            main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
+        else:
+            print("WARNING: You may have passed too many arguments to the program!")
+            main(mem_limit=sys.argv[1], proc_num=sys.argv[2])
+    else: #Command was python3 PLDManager.py
+        if len(sys.argv) == 2:
+            main()
+        elif len(sys.argv) == 3:
+            main(mem_limit=sys.argv[2])
+        elif len(sys.argv) == 4:
+            main(mem_limit=sys.argv[2], proc_num=sys.argv[3])
+        else:
+            print("WARNING: You may have passed too many arguments to the program!")
+            main(mem_limit=sys.argv[2], proc_num=sys.argv[3])

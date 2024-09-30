@@ -13,13 +13,13 @@ This program comes with a number of scripts, a handful of which are intended for
 
   
 
-The main program, which should be the most intuitive (if at times a little clunky) to use, is PLD-Wrapper.py.
+PLD-Wrapper.py provides an intuitive, simple GUI to interact with. The intention is that this script allows users to get comfortable with the input formatting and perhaps run some easier diagrams.
 
-The GUI-less version of the program, which is more stable and is intended to be more convenient for those who are confident with programming, or are running in a headless instance, is PLDManager.py.
+PLDManager.py is intended to be the main script for users to use and it is recommended that you use this script for all serious calculations. It includes several optimisations not made to PLD-Wrapper.py, the logic being that any large calculations are probably being run on a headless instance such as a compute cluster anyway.
 
 The script intended for use if the program does not terminate and you thus end execution early, is PLDCleanup.py. (currently this is only compatible with use of PLD for a Feynman diagram)
 
-The script to calculate the PLD with a custom (manually input) polynomial, is PLDCustom.py.
+The script to calculate the PLD with a custom (manually input) polynomial, is PLDCustom.py. It functions nearly identically to PLDManager
 
 Finally, the "Slurm Scripts" show an example of how the PLD-Wrapper program may be adapted for use with a compute cluster.
 
@@ -91,7 +91,7 @@ Note: PLD.jl is NOT a package that can be added using Pkg. You do not need to wo
 
   
 
-PLD-Wrapper v1.2.0 was last tested to be compatible with the current versions of the above packages on the 25th of August 2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
+PLD-Wrapper v1.2.1 was last tested to be compatible with the current versions of the above packages on the 30th of September 2024. As a reference, in case something breaks in future, you may want to compare the result of the command ```Pkg.status()``` to the below:
 
   
 
@@ -237,9 +237,7 @@ This means if you used subscripts or brackets etc. in the polynomial, you must a
 ### Sysimages
 Those who are experienced with using julia may be familiar with the practice of creating sysimages, which can significantly decrease program load times. On my system, it provides a modest improvement, reducing the load time of the julia scripts from around 1 minute to around 20 seconds. This reduces the overall overhead of the program by around 30-40%, but your results may vary. I will not provide a step-by-step tutorial here, but will instead refer you to the PackageCompiler.jl [documentation](https://julialang.github.io/PackageCompiler.jl/dev/sysimages.html) if you wish to use this advantage.
 
-Simply create a sysimage of a script containing the preamble (the using Oscar using PLD parts at the start of the julia scripts) and then go to the python scripts to find + replace the characters *"julia"* with *"julia", "--sysimage", "YOURSYSIMAGE.so"*. (including the quote marks)
-
-Make sure you do this in every script to get the most out of it, so if you are using PLDManager.py, don't forget to also make this change in PLDUtils.py!
+Simply create a sysimage of a script containing the preamble (the using Oscar using PLD parts at the start of the julia scripts). The program will automaticall detect and use the sysimage. Just make sure you don't pollute your directory with other .so files!
 
 ### Slurm Scripts
 The provided scripts are given as an example only. They were written to be run on a compute cluster using the SLURM manager. I expect users who are attempting to run large calculations on such clusters are able to modify these scripts or write their own according to their use case.
@@ -248,7 +246,7 @@ The provided scripts are given as an example only. They were written to be run o
 ### Julia Files
 At no point when using these programs for their intended purpose should you have to touch the Julia files. However, feel free to tinker with things if you wish to add your own functionality, or if you spot a problem. (In the latter case, do let me know so I can fix it for everyone else too!) 
 
-Something that hasn't yet been added is support for the much slower "high precision" mode of PLD.jl. This is relevant for numeric calculations, which may suffer rounding errors/tolerances which can result in  wonky coefficients such as 109656/73105 = 1.4999794... instead of 3/2. 
+Something that hasn't yet been added is support for the much slower "high precision" mode of PLD.jl. This is relevant for numeric calculations, which may suffer rounding errors/tolerances which can result in wonky coefficients such as 109656/73105 = 1.4999794... instead of 3/2. 
 
   
 
@@ -260,8 +258,10 @@ Whilst I have tried to ensure the input processing for this program is as robust
 
 ## Related Projects
 
-Development of a companion tool to use PLD.jl for expansion by regions has come up as a potentially useful addition since PLD.jl in its current form only supports strict substitutions, so can only obtain strict limits and not expansions near the limit.
-This tool, if it is made, will be made open source in another Github repository, the link to which will appear here when released...
+~~Development of a companion tool to use PLD.jl for expansion by regions has come up as a potentially useful addition since PLD.jl in its current form only supports strict substitutions, so can only obtain strict limits and not expansions near the limit.~~
+~~This tool, if it is made, will be made open source in another Github repository, the link to which will appear here when released...~~
+
+It has since been pointed out that such a program would be largely redundant, since by using existing tools to perform expansion by regions, one can obtain region vectors which may be truncated to be used as weight vectors for obtaining the relevant initial forms. 
 
   
 

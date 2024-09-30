@@ -45,7 +45,12 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
 
     try:
         # Construct the command to run Julia script
-        command = ["julia", script_path] + inputfile
+        sysimg_file = glob.glob("*.so")
+
+        if sysimg_file:
+            command = ["julia", "--sysimage", sysimg_file[0], script_path] + inputfile
+        else:
+            command = ["julia", script_path] + inputfile
 
         # Run the command, redirecting output to a file
         with open(output_file, "w") as output_file_handle:
@@ -214,7 +219,13 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 file.write(f"{arg}\n")
 
                         #Create a new process to try the numeric method in the background
-                        num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
+                        sysimg_file = glob.glob("*.so")
+
+                        if sysimg_file:
+                            num_processes.append(subprocess.Popen(["julia", "--sysimage", sysimg_file[0], script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
+                        else:
+                            num_processes.append(subprocess.Popen(["julia", script_path] + [num_inputs], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True))
+                    
                         num_retries.append(0)
                         num_cpu_times.append(0)
                         num_idle_cycles.append(0)
@@ -235,7 +246,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                         else: #Retry a few times if failed
                             if num_retries[i] < num_retry_cap:
                                 print("One of the numeric processes encountered an error! Restarting it...")
-                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+
+                                sysimg_file = glob.glob("*.so")
+
+                                if sysimg_file:
+                                    num_processes[i] = subprocess.Popen(["julia", "--sysimage", sysimg_file[0], script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                                else:
+                                    num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)  
+
                                 num_retries[i] += 1
                             else:
                                 print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
@@ -266,7 +284,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 num_processes[i].stdout.close()
                             if num_processes[i].stderr:
                                 num_processes[i].stderr.close()
-                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+
+                            sysimg_file = glob.glob("*.so")
+
+                            if sysimg_file:
+                                num_processes[i] = subprocess.Popen(["julia", "--sysimage", sysimg_file[0], script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            else:
+                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            
                             num_idle_cycles[i] = 0
                             num_retries[i] += 1
 
@@ -300,7 +325,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                             if num_retries[i] < num_retry_cap:
                                 numTasksDone = False
                                 print("One of the numeric processes encountered an error! Restarting it...")
-                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+
+                                sysimg_file = glob.glob("*.so")
+
+                                if sysimg_file:
+                                    num_processes[i] = subprocess.Popen(["julia", "--sysimage", sysimg_file[0], script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                                else:
+                                    num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+
                                 num_retries[i] += 1
                             else:
                                 print("Warning: the retry cap of " + str(num_retry_cap) + " has been exceeded.")
@@ -334,7 +366,14 @@ def run_julia_script(script_path, inputfile, args, codims, faces, timeout=90, nu
                                 num_processes[i].stdout.close()
                             if num_processes[i].stderr:
                                 num_processes[i].stderr.close()
-                            num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+
+                            sysimg_file = glob.glob("*.so")
+
+                            if sysimg_file:
+                                num_processes[i] = subprocess.Popen(["julia", "--sysimage", sysimg_file[0], script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            else:
+                                num_processes[i] = subprocess.Popen(["julia", script_path] + [output_dir + "PLDinputs_proc_" + proc_num + "_" + str(i+1) + ".txt"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+                            
                             num_idle_cycles[i] = 0
                             num_retries[i] += 1
 
@@ -417,7 +456,12 @@ def read_codim_face_from_file(file_path):
     
 def get_faces_codims(script_path, input_file_path, output_dir="output/", proc_num = "main"):
 
-    command = ["julia", script_path] + input_file_path
+    sysimg_file = glob.glob("*.so")
+
+    if sysimg_file:
+        command = ["julia", "--sysimage", sysimg_file[0], script_path] + input_file_path
+    else:
+        command = ["julia", script_path] + input_file_path
 
     with open(output_dir + "output_proc_" + proc_num + ".txt", "w") as output_file_handle:
             main_process = subprocess.Popen(command, stdout=output_file_handle, stderr=subprocess.DEVNULL, text=True)
